@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SignalMap
 
-## Getting Started
+Peta layar penuh untuk eksplorasi performa jaringan mobile Ookla, cakupan teknologi per kabupaten/kota, dan alokasi pita frekuensi di Indonesia.
 
-First, run the development server:
+## Menjalankan aplikasi
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Basemap vector CARTO Voyager memerlukan `NEXT_PUBLIC_CARTO_KEY`. Salin `.env.example` sebagai `.env.local`, masukkan API key CARTO, lalu jalankan ulang aplikasi. Key ini digunakan oleh browser untuk meminta style/tiles; batasi key pada domain aplikasi dari pengaturan CARTO.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data yang digunakan
 
-## Learn More
+- `lib/ookla_indonesia_mobile.parquet`: pengukuran Ookla mobile kuartal 1 2026. Data asli berisi 237.566 sel. Peta memakai sel quadkey level 12 dengan agregasi berbobot jumlah tes; angka ringkasan juga ditimbang menurut jumlah tes.
+- `lib/data-coverage-jaringan-telekomunikasi.xlsx`: persentase 2G, 3G, 4G, dan 5G untuk 515 kabupaten/kota. Tahun/periode dan metode pembobotan tidak tercantum di lembar sumber; dashboard menyebut rata-rata sederhana antarwilayah, bukan cakupan berbobot penduduk.
+- `lib/data-frekuensi-mobile-broadband-per-2023.xlsx`: pita frekuensi radio, lebar pita, dan pemegang IPFR untuk 2023. Data ini tidak menunjukkan performa aktual operator.
 
-To learn more about Next.js, take a look at the following resources:
+Peta menyediakan pilihan metrik unduh/unggah/latensi, tiga gaya peta dasar, pencarian wilayah, fokus lokasi perangkat, serta panel layer, ringkasan data, daftar cakupan, dan frekuensi. Data cakupan dan frekuensi tidak dipadankan ke sel Ookla karena sumber tidak menyediakan batas geografis maupun pengenal wilayah bersama.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Membangun ulang data turunan
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+File JSON yang dipakai dashboard dibuat dari berkas sumber di `lib`. Jika berkas sumber berubah, pasang Python dan DuckDB lalu jalankan:
 
-## Deploy on Vercel
+```bash
+python -m pip install duckdb
+python scripts/prepare-network-data.py
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Skrip menghasilkan `lib/coverage-data.json`, `lib/frequency-data.json`, `lib/ookla-summary.json`, dan `public/data/ookla-mobile-tiles.json`.
