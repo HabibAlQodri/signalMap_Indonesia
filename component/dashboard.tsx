@@ -539,7 +539,7 @@ export default function Dashboard() {
             onFocus={() => setSearchFocused(true)}
             onKeyDown={handleSearchKeys}
             role="combobox"
-            placeholder="Cari wilayah, kabupaten/kota, atau provinsi"
+            placeholder="Cari wilayah atau provinsi"
             ref={searchRef}
             value={query}
           />

@@ -1016,4 +1016,70 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .map-region-trigger { min-width: 120px; font-size: 12.5px; }
   .map-region-menu { min-width: 200px; }
 }
+
+/* =====================================================================
+   REVISI v4 — perbaikan tampilan mobile (<= 700px)
+   - Bar kontrol atas jadi grid 2 baris (wilayah + 3D / tiga metrik) sehingga
+     tidak ada elemen yang saling menimpa dan dropdown wilayah tidak terpotong
+   - Kartu performa & legenda berdampingan, tidak saling menutupi
+   - Posisi elemen mengikuti safe-area (notch / home indicator)
+   ===================================================================== */
+@media (max-width: 700px) {
+  .map-workspace { --safe-b: env(safe-area-inset-bottom, 0px); --stack-top: 168px; }
+
+  /* Bar kontrol atas: 2 baris, overflow visible agar dropdown tidak terpotong */
+  .map-quick-controls {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; overflow: visible; padding: 5px;
+  }
+  .map-control-divider { display: none; }
+  .map-region-select { flex: none; min-width: 0; }
+  .map-region-trigger { width: 100%; min-width: 0; height: 42px; }
+  .map-region-menu { left: 0; right: 0; min-width: 0; max-height: 50vh; overflow: auto; }
+  .map-3d-toggle { width: auto; height: 42px; justify-content: flex-start; padding: 0 10px; }
+  .map-3d-toggle > span { display: inline; }
+  .map-3d-toggle .switch-track { display: block; }
+  .map-quick-metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .map-quick-metrics button { min-width: 0; height: 44px; justify-items: center; padding: 0 4px; text-align: center; }
+  .map-quick-metrics button > span { font-size: 11px; }
+  .map-quick-metrics button > strong { font-size: 12.5px; white-space: nowrap; }
+
+  /* Pencarian: placeholder pendek agar tidak terpotong */
+  .map-global-search input { text-overflow: ellipsis; }
+
+  /* Kontrol zoom/kompas turun mengikuti tinggi bar atas */
+  .map-control-stack { top: var(--stack-top); }
+  .map-loading-chip, .map-data-error, .map-location-error { top: var(--stack-top); }
+  .map-loading-chip { max-width: calc(100vw - 120px); }
+
+  /* Tab bar bawah mengikuti safe-area */
+  .map-tool-rail { bottom: calc(8px + var(--safe-b)); }
+  .map-side-panel { bottom: calc(70px + var(--safe-b)); max-height: min(52vh, 460px); }
+  .maplibre-container .maplibregl-ctrl-bottom-right { bottom: calc(66px + var(--safe-b)); }
+
+  /* Kartu performa (kiri) + legenda (kanan) berdampingan */
+  .map-performance-card, .map-workspace:has(.map-side-panel) .map-performance-card {
+    bottom: calc(98px + var(--safe-b)); left: 8px; width: calc(100vw - 8px - 8px - 150px - 8px); max-width: 280px; padding: 9px 11px;
+  }
+  .map-legend.map-floating-card, .map-workspace:has(.map-side-panel) .map-legend.map-floating-card {
+    right: 8px; bottom: calc(98px + var(--safe-b)); width: 150px; padding: 8px 9px;
+  }
+  .map-performance-top { flex-wrap: nowrap; gap: 5px; overflow: hidden; white-space: nowrap; font-size: 10px; }
+  .map-performance-top > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; }
+  .map-performance-top > i, .map-performance-top > span:last-child { display: none; }
+  .map-performance-value { font-size: 22px; }
+  .map-performance-bottom { flex-direction: column; align-items: flex-start; gap: 1px; font-size: 10px; }
+  .map-legend-heading strong { font-size: 11px; }
+  .map-legend-bands { font-size: 9.5px; }
+  .map-legend-bands span { overflow: hidden; text-overflow: clip; }
+}
+
+/* Layar sangat sempit (<= 380px) */
+@media (max-width: 380px) {
+  .map-workspace { --stack-top: 164px; }
+  .map-3d-toggle > span { font-size: 11.5px; }
+  .map-quick-metrics button > strong { font-size: 11.5px; }
+  .map-performance-card, .map-workspace:has(.map-side-panel) .map-performance-card { width: calc(100vw - 8px - 8px - 132px - 8px); }
+  .map-legend.map-floating-card, .map-workspace:has(.map-side-panel) .map-legend.map-floating-card { width: 132px; }
+  .map-legend-bands { font-size: 9px; }
+}
 @media (forced-colors: active) { .map-region-option.is-active { outline: 2px solid Highlight; } }
