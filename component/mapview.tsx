@@ -694,6 +694,17 @@ export default function MapView({
     );
   }, [activeCell, view3d, mapReady, data, metric]);
 
+  // Mobile: popup detail menjadi kartu di bawah layar. Geser peta agar sel terpilih
+  // tidak tertutup kartu atau bar atas (pita terlihat ≈ 175px dari atas sampai 340px dari bawah).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !activeCell || window.innerWidth > 700) return;
+    const point = map.project([activeCell[0], activeCell[1]]);
+    const height = map.getContainer().clientHeight;
+    if (point.y >= 175 && point.y <= height - 340) return;
+    map.easeTo({ center: [activeCell[0], activeCell[1]], offset: [0, -82], duration: 350 });
+  }, [activeCell, mapReady]);
+
   function zoomMap(amount: number) {
     mapRef.current?.zoomTo(Math.min(15, Math.max(3, mapRef.current.getZoom() + amount)), { duration: 180 });
   }
