@@ -74,7 +74,7 @@ function downloadCsv(rows: CoverageRow[]) {
 
 export default function Dashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
-  const [panel, setPanel] = useState<PanelName | null>("layers");
+  const [panel, setPanel] = useState<PanelName | null>(null);
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
@@ -95,6 +95,15 @@ export default function Dashboard() {
   const [coverageMetric, setCoverageMetric] = useState<CoverageMetric>("4G");
   const [coverageSort, setCoverageSort] = useState<"low" | "high">("low");
   const [fullscreen, setFullscreen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [announcement, setAnnouncement] = useState("");
+  const [regionOpen, setRegionOpen] = useState(false);
+  const [regionActive, setRegionActive] = useState(0);
+  const regionWrapRef = useRef<HTMLDivElement>(null);
+  const regionBtnRef = useRef<HTMLButtonElement>(null);
+  const panelCloseRef = useRef<HTMLButtonElement>(null);
+  const lastRailButtonRef = useRef<HTMLButtonElement | null>(null);
+  const metricButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const finishInitialLoading = useCallback(() => setInitialLoading(false), []);
@@ -232,8 +241,101 @@ export default function Dashboard() {
     await workspaceRef.current.requestFullscreen();
   }
 
-  function showPanel(name: PanelName) {
+  function showPanel(name: PanelName, trigger?: HTMLButtonElement | null) {
+    if (trigger) lastRailButtonRef.current = trigger;
     setPanel((current) => current === name ? null : name);
+  }
+
+  function closePanel() {
+    setPanel(null);
+    window.setTimeout(() => lastRailButtonRef.current?.focus(), 0);
+  }
+
+  // Dropdown wilayah kustom (pola listbox): tutup saat klik di luar.
+  const currentRegion = regions.find((item) => item.name === regionName) ?? regions[0];
+  useEffect(() => {
+    if (!regionOpen) return;
+    function handleOutside(event: MouseEvent) {
+      if (!regionWrapRef.current?.contains(event.target as Node)) setRegionOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [regionOpen]);
+
+  function openRegionMenu() {
+    setRegionActive(Math.max(0, regions.findIndex((item) => item.name === currentRegion.name)));
+    setRegionOpen(true);
+  }
+
+  function chooseRegion(index: number) {
+    focusMap(regions[index]);
+    setRegionOpen(false);
+    regionBtnRef.current?.focus();
+  }
+
+  function handleRegionKeys(event: React.KeyboardEvent<HTMLElement>) {
+    if (!regionOpen) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        openRegionMenu();
+      }
+      return;
+    }
+    if (event.key === "ArrowDown") { event.preventDefault(); setRegionActive((v) => (v + 1) % regions.length); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); setRegionActive((v) => (v - 1 + regions.length) % regions.length); }
+    else if (event.key === "Home") { event.preventDefault(); setRegionActive(0); }
+    else if (event.key === "End") { event.preventDefault(); setRegionActive(regions.length - 1); }
+    else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRegion(regionActive); }
+    else if (event.key === "Escape") { event.stopPropagation(); event.nativeEvent.stopPropagation(); setRegionOpen(false); regionBtnRef.current?.focus(); }
+    else if (event.key === "Tab") setRegionOpen(false);
+  }
+
+  // Pindahkan fokus ke panel saat dibuka agar pengguna keyboard/screen reader tidak tertinggal di peta.
+  useEffect(() => {
+    if (panel) panelCloseRef.current?.focus();
+  }, [panel]);
+
+  // Umumkan perubahan metrik & mode 3D untuk pembaca layar.
+  useEffect(() => {
+    const label = metrics.find((item) => item.value === mapMetric)?.label ?? "";
+    setAnnouncement(`${label} ditampilkan${view3d ? ", tampilan 3D aktif" : ""}.`);
+  }, [mapMetric, view3d]);
+
+  // Navigasi panah pada grup metrik (pola radiogroup).
+  function handleMetricKeys(event: React.KeyboardEvent<HTMLDivElement>) {
+    const keys = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const current = metrics.findIndex((item) => item.value === mapMetric);
+    let next = current;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % metrics.length;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (current - 1 + metrics.length) % metrics.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = metrics.length - 1;
+    setMapMetric(metrics[next].value);
+    metricButtonRefs.current[next]?.focus();
+  }
+
+  // Navigasi panah pada daftar saran pencarian (pola combobox).
+  const suggestionCount = suggestions.regionHits.length + suggestions.districtHits.length;
+  function handleSearchKeys(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!searchFocused || suggestionCount === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSuggestion((value) => (value + 1) % suggestionCount);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSuggestion((value) => (value <= 0 ? suggestionCount - 1 : value - 1));
+    } else if (event.key === "Enter" && activeSuggestion >= 0) {
+      event.preventDefault();
+      const regionCount = suggestions.regionHits.length;
+      if (activeSuggestion < regionCount) pickRegion(suggestions.regionHits[activeSuggestion]);
+      else openDistrict(suggestions.districtHits[activeSuggestion - regionCount].district);
+      setActiveSuggestion(-1);
+    } else if (event.key === "Escape") {
+      setSearchFocused(false);
+      setActiveSuggestion(-1);
+    }
   }
 
   function renderPanelContent() {
@@ -417,6 +519,7 @@ export default function Dashboard() {
       />
 
       <header className="map-topbar">
+        <h1 className="sr-only">SignalMap: peta performa jaringan seluler Indonesia</h1>
         <Link aria-label="SignalMap peta jaringan" className="map-brand-plate" href="/">
           <span className="map-brand-mark"><Icon name="signal" size={21} /></span>
           <span><strong>signal<span>map</span></strong><small>PETA JARINGAN NUSANTARA</small></span>
@@ -425,11 +528,17 @@ export default function Dashboard() {
         <form className="map-global-search" onSubmit={handleSearch} role="search">
           <Icon name="search" size={17} />
           <input
+            aria-activedescendant={activeSuggestion >= 0 ? `search-option-${activeSuggestion}` : undefined}
+            aria-autocomplete="list"
+            aria-controls="search-listbox"
+            aria-expanded={searchFocused && suggestionCount > 0}
             aria-label="Cari wilayah atau provinsi"
             autoComplete="off"
-            onBlur={() => setSearchFocused(false)}
-            onChange={(event) => { setQuery(event.target.value); setSearchMessage(""); }}
+            onBlur={() => { setSearchFocused(false); setActiveSuggestion(-1); }}
+            onChange={(event) => { setQuery(event.target.value); setSearchMessage(""); setActiveSuggestion(-1); }}
             onFocus={() => setSearchFocused(true)}
+            onKeyDown={handleSearchKeys}
+            role="combobox"
             placeholder="Cari wilayah, kabupaten/kota, atau provinsi"
             ref={searchRef}
             value={query}
@@ -441,17 +550,17 @@ export default function Dashboard() {
           )}
           <kbd>{shortcutLabel}</kbd>
           {searchFocused && (suggestions.regionHits.length > 0 || suggestions.districtHits.length > 0) && (
-            <div className="map-search-results" onMouseDown={(event) => event.preventDefault()} role="listbox">
-              {suggestions.regionHits.length > 0 && <div className="map-search-heading">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>}
-              {suggestions.regionHits.map((region) => (
-                <button className="map-search-item" key={region.name} onClick={() => pickRegion(region)} role="option" type="button">
+            <div className="map-search-results" id="search-listbox" onMouseDown={(event) => event.preventDefault()} role="listbox" aria-label="Saran pencarian">
+              {suggestions.regionHits.length > 0 && <div className="map-search-heading" role="presentation">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>}
+              {suggestions.regionHits.map((region, i) => (
+                <button aria-selected={activeSuggestion === i} className={`map-search-item ${activeSuggestion === i ? "is-active" : ""}`} id={`search-option-${i}`} key={region.name} onClick={() => pickRegion(region)} role="option" tabIndex={-1} type="button">
                   <span className="map-search-item-icon"><Icon name="locate" size={15} /></span>
                   <span><strong>{region.label}</strong><small>Pindahkan peta ke wilayah ini</small></span>
                 </button>
               ))}
-              {suggestions.districtHits.length > 0 && <div className="map-search-heading">KABUPATEN/KOTA · DATA CAKUPAN</div>}
-              {suggestions.districtHits.map((row) => (
-                <button className="map-search-item" key={`${row.province}-${row.district}`} onClick={() => openDistrict(row.district)} role="option" type="button">
+              {suggestions.districtHits.length > 0 && <div className="map-search-heading" role="presentation">KABUPATEN/KOTA · DATA CAKUPAN</div>}
+              {suggestions.districtHits.map((row, j) => (
+                <button aria-selected={activeSuggestion === suggestions.regionHits.length + j} className={`map-search-item ${activeSuggestion === suggestions.regionHits.length + j ? "is-active" : ""}`} id={`search-option-${suggestions.regionHits.length + j}`} key={`${row.province}-${row.district}`} onClick={() => openDistrict(row.district)} role="option" tabIndex={-1} type="button">
                   <span className="map-search-item-icon"><Icon name="globe" size={15} /></span>
                   <span><strong>{row.district}</strong><small>{row.province} · 4G {percentage(row["4G"])}</small></span>
                 </button>
@@ -462,36 +571,76 @@ export default function Dashboard() {
         </form>
 
         <div className="map-quick-controls">
-          <label className="map-region-select">
-            <Icon name="globe" size={15} />
-            <select aria-label="Pilih wilayah peta" onChange={(event) => {
-              const region = regions.find((item) => item.name === event.target.value);
-              if (region) focusMap(region);
-            }} value={regionName}>
-              {regions.map((region) => <option key={region.name} value={region.name}>{region.label}</option>)}
-            </select>
-            <Icon name="chevron-down" size={13} />
-          </label>
+          <div className="map-region-select" onKeyDown={handleRegionKeys} ref={regionWrapRef}>
+            <button
+              aria-activedescendant={regionOpen ? `region-option-${regionActive}` : undefined}
+              aria-controls="region-listbox"
+              aria-expanded={regionOpen}
+              aria-haspopup="listbox"
+              aria-label={`Pilih wilayah peta, saat ini ${currentRegion.label}`}
+              className="map-region-trigger"
+              onClick={() => (regionOpen ? setRegionOpen(false) : openRegionMenu())}
+              ref={regionBtnRef}
+              type="button"
+            >
+              <Icon name="globe" size={16} />
+              <span>{currentRegion.label}</span>
+              <Icon className={`region-chevron ${regionOpen ? "is-open" : ""}`} name="chevron-down" size={14} />
+            </button>
+            {regionOpen && (
+              <ul aria-label="Daftar wilayah" className="map-region-menu" id="region-listbox" role="listbox" tabIndex={-1}>
+                {regions.map((region, i) => (
+                  <li
+                    aria-selected={region.name === currentRegion.name}
+                    className={`map-region-option ${i === regionActive ? "is-active" : ""} ${region.name === currentRegion.name ? "is-selected" : ""}`}
+                    id={`region-option-${i}`}
+                    key={region.name}
+                    onClick={() => chooseRegion(i)}
+                    onMouseEnter={() => setRegionActive(i)}
+                    role="option"
+                  >
+                    <span>{region.label}</span>
+                    {region.name === currentRegion.name && (
+                      <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" width="16"><path d="m5 12 5 5 9-10" /></svg>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <span aria-hidden="true" className="map-control-divider" />
           <button
+            aria-describedby="view3d-hint"
             aria-pressed={view3d}
             className={`map-3d-toggle ${view3d ? "is-active" : ""}`}
             disabled={!overlayOn}
             onClick={() => setView3d((value) => !value)}
-            title="Tampilan 3D"
+            type="button"
           >
-            <Icon name="layers" size={15} /><span>3D</span>
+            <Icon name="layers" size={16} />
+            <span>Tampilan 3D</span>
+            <i aria-hidden="true" className={`switch-track ${view3d ? "is-on" : ""}`} />
           </button>
-          <div aria-label="Pilih metrik peta" className="map-quick-metrics" role="group">
-            {metrics.map((metric) => (
+          <span className="sr-only" id="view3d-hint">
+            {overlayOn ? "Miringkan peta dan tampilkan batang tinggi sesuai jumlah tes." : "Tidak tersedia karena overlay hasil pengukuran dinonaktifkan."}
+          </span>
+          <span aria-hidden="true" className="map-control-divider" />
+          <div aria-label="Pilih metrik peta" className="map-quick-metrics" onKeyDown={handleMetricKeys} role="radiogroup">
+            {metrics.map((metric, i) => (
               <button
-                aria-pressed={mapMetric === metric.value}
+                aria-checked={mapMetric === metric.value}
+                aria-label={`${metric.label}: rata-rata ${metric.reading}`}
                 className={mapMetric === metric.value ? "is-active" : ""}
                 key={metric.value}
                 onClick={() => setMapMetric(metric.value)}
+                ref={(node) => { metricButtonRefs.current[i] = node; }}
+                role="radio"
+                tabIndex={mapMetric === metric.value ? 0 : -1}
                 title={metric.label}
+                type="button"
               >
-                <span>{metric.short}</span>
-                <strong>{metric.reading}</strong>
+                <span aria-hidden="true">{metric.short}</span>
+                <strong aria-hidden="true">{metric.reading}</strong>
               </button>
             ))}
           </div>
@@ -502,11 +651,13 @@ export default function Dashboard() {
         {panelItems.map((item) => (
           <button
             aria-label={item.label}
-            aria-pressed={panel === item.value}
+            aria-controls="map-side-panel"
+            aria-expanded={panel === item.value}
             className={panel === item.value ? "is-active" : ""}
             key={item.value}
-            onClick={() => showPanel(item.value)}
+            onClick={(event) => showPanel(item.value, event.currentTarget)}
             title={item.label}
+            type="button"
           >
             <Icon name={item.icon} size={20} />
             <span>{item.short}</span>
@@ -520,17 +671,19 @@ export default function Dashboard() {
       </nav>
 
       {panel && (
-        <aside aria-label={activePanelItem?.label ?? "Panel peta"} className="map-side-panel">
+        <aside aria-label={activePanelItem?.label ?? "Panel peta"} className="map-side-panel" id="map-side-panel">
           <div className="map-panel-header">
             <div>
               <span className="map-panel-kicker">SIGNALMAP / EKSPLORASI</span>
-              <h1>{activePanelItem?.label}</h1>
+              <h2>{activePanelItem?.label}</h2>
             </div>
-            <button aria-label="Tutup panel" className="map-panel-close" onClick={() => setPanel(null)}><Icon name="close" size={17} /></button>
+            <button aria-label="Tutup panel (Esc)" className="map-panel-close" onClick={closePanel} ref={panelCloseRef} type="button"><Icon name="close" size={17} /></button>
           </div>
           {renderPanelContent()}
         </aside>
       )}
+
+      <div aria-live="polite" className="sr-only" role="status">{announcement}</div>
 
       <div className="map-bottom-left">
         <span className="map-bottom-pulse" />

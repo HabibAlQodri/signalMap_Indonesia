@@ -899,3 +899,121 @@ body { background: #dce8e7; }
 .dashboard-loading-status { display: flex; align-items: center; gap: 8px; margin-top: 5px; color: #74857e; font-size: 12px; }
 .dashboard-loading-status .map-loading-spinner { width: 15px; height: 15px; }
 @media (prefers-reduced-motion: reduce) { .dashboard-initial-loading { transition: none; } }
+/* =====================================================================
+   REVISI v3 — UI & aksesibilitas
+   - Bar kontrol: grup terpisah rapi (wilayah | 3D | metrik), tombol 3D sejajar
+   - Fokus keyboard jelas, target sentuh >= 44px, teks tidak lagi < 11px
+   - Dukungan reduced-motion, forced-colors, dan kontras teks lebih tinggi
+   ===================================================================== */
+
+:root { --focus-ring: #0b6b57; --text-strong: #24383a; --text-muted: #536661; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, [role="radio"]:focus-visible, [role="option"]:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgb(255 255 255 / 90%);
+}
+
+/* ---------- Bar kontrol atas ---------- */
+.map-quick-controls { align-items: center; gap: 6px; padding: 6px; }
+.map-control-divider { width: 1px; height: 28px; flex: 0 0 auto; background: #dfe7e3; }
+.map-region-select { height: 44px; min-width: 132px; border-right: 0; border-radius: 9px; padding: 0 10px; }
+.map-region-select:hover { background: #f1f6f3; }
+.map-region-select select { font-size: 13px; font-weight: 600; color: var(--text-strong); }
+
+.map-3d-toggle {
+  display: inline-flex; height: 44px; flex: 0 0 auto; align-items: center; gap: 8px; border: 1px solid transparent;
+  border-radius: 9px; background: transparent; padding: 0 10px 0 11px; color: var(--text-muted);
+  font-size: 12.5px; font-weight: 650; white-space: nowrap; cursor: pointer; transition: background .15s ease, color .15s ease;
+}
+.map-3d-toggle > span { line-height: 1; }
+.map-3d-toggle .switch-track { flex: 0 0 auto; }
+.map-3d-toggle:hover:not(:disabled) { background: #eaf3ef; color: #1f6f5a; }
+.map-3d-toggle.is-active { border-color: #cfe5da; background: #eaf3ef; color: #1b6a55; box-shadow: none; }
+.map-3d-toggle:disabled { cursor: not-allowed; opacity: .5; }
+
+.map-quick-metrics { gap: 4px; }
+.map-quick-metrics button { min-width: 108px; height: 46px; gap: 3px; border-radius: 9px; padding: 0 12px; color: var(--text-muted); }
+.map-quick-metrics button > span { font-size: 11.5px; font-weight: 600; line-height: 1; }
+.map-quick-metrics button > strong { color: var(--text-strong); font-size: 13.5px; font-weight: 700; }
+.map-quick-metrics button:hover { background: #eef5f1; }
+.map-quick-metrics button.is-active { border-color: #cfe5da; background: #e8f3ee; color: #1b6a55; box-shadow: inset 0 -3px #2f8f72; }
+.map-quick-metrics button.is-active > strong { color: #155a47; }
+
+/* ---------- Pencarian ---------- */
+.map-global-search { border-color: #d6e0db; }
+.map-global-search input::placeholder { color: #66777a; }
+.map-search-item.is-active { background: #e4f1ea; box-shadow: inset 3px 0 #2f8f72; }
+.map-search-heading { color: #5f726c; font-size: 11px; }
+.map-search-item small { color: #61736d; font-size: 11.5px; }
+
+/* ---------- Rail & panel ---------- */
+.map-tool-rail button { min-width: 54px; min-height: 56px; color: #4c605e; }
+.map-tool-rail button > span { font-size: 11px; }
+.map-panel-header h2 { margin: 4px 0 0; color: #293b3d; font-size: 18px; font-weight: 660; letter-spacing: -.3px; }
+.map-panel-close { width: 40px; height: 40px; }
+.map-panel-kicker { color: #5f726c; font-size: 11px; }
+
+.map-source-chip, .map-legend-ends, .map-legend-note, .map-option-hint, .map-panel-footnote,
+.metric-choice-grid button small, .basemap-choice small, .coverage-ranked-row > div small,
+.frequency-panel-row small, .map-cell-foot { font-size: 11px; color: var(--text-muted); }
+.map-legend-bands, .map-legend-heading span { color: #4f625d; }
+.map-bottom-left, .map-hud { color: #3f524c; }
+.map-layer-switch:focus-visible { border-color: var(--focus-ring); }
+
+/* ---------- Layar sempit: target sentuh >= 44px ---------- */
+@media (max-width: 700px) {
+  .map-quick-controls { gap: 4px; padding: 5px; }
+  .map-control-divider { display: none; }
+  .map-region-select { min-width: 112px; }
+  .map-3d-toggle > span { display: none; }
+  .map-3d-toggle { width: 46px; justify-content: center; padding: 0; }
+  .map-3d-toggle .switch-track { display: none; }
+  .map-quick-metrics button { min-width: 84px; height: 46px; padding: 0 8px; }
+  .map-tool-rail button { min-height: 48px; }
+}
+@media (max-width: 390px) {
+  .map-quick-metrics button > span { font-size: 11px; }
+  .map-quick-metrics button > strong { font-size: 12.5px; }
+}
+
+/* ---------- Preferensi pengguna ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+@media (forced-colors: active) {
+  .map-quick-metrics button.is-active, .map-3d-toggle.is-active, .map-tool-rail button.is-active { outline: 2px solid Highlight; }
+  .switch-track { border: 1px solid ButtonText; }
+  .switch-track.is-on { background: Highlight; }
+}
+
+/* ---------- Dropdown wilayah kustom ---------- */
+.map-region-select { position: relative; padding: 0; min-width: 0; }
+.map-region-trigger {
+  display: flex; height: 44px; min-width: 150px; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 9px;
+  background: transparent; padding: 0 10px; color: var(--text-strong); font-size: 13px; font-weight: 650; cursor: pointer; text-align: left;
+  transition: background .15s ease, border-color .15s ease;
+}
+.map-region-trigger > span { flex: 1; white-space: nowrap; }
+.map-region-trigger > svg:first-child { color: #3f7f6d; }
+.map-region-trigger:hover, .map-region-trigger[aria-expanded="true"] { background: #eef5f1; border-color: #d3e5dc; }
+.region-chevron { color: #5d716b; transition: transform .18s ease; }
+.region-chevron.is-open { transform: rotate(180deg); }
+.map-region-menu {
+  position: absolute; z-index: 40; top: calc(100% + 10px); left: -6px; min-width: 214px; margin: 0; padding: 6px; list-style: none;
+  border: 1px solid #dfe8e3; border-radius: 12px; background: #fff; box-shadow: 0 14px 36px rgb(31 48 53 / 22%);
+  animation: region-menu-in .14s ease-out;
+}
+@keyframes region-menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.map-region-option {
+  display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; border-radius: 8px; padding: 0 12px;
+  color: #33463f; font-size: 13.5px; cursor: pointer;
+}
+.map-region-option.is-active { background: #eaf3ee; }
+.map-region-option.is-selected { color: #17614d; font-weight: 700; }
+.map-region-option.is-selected svg { color: #2f8f72; }
+@media (max-width: 700px) {
+  .map-region-trigger { min-width: 120px; font-size: 12.5px; }
+  .map-region-menu { min-width: 200px; }
+}
+@media (forced-colors: active) { .map-region-option.is-active { outline: 2px solid Highlight; } }
