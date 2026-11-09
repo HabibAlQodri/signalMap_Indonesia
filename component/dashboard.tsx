@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import coverageData from "../lib/coverage-data.json";
 import frequencyData from "../lib/frequency-data.json";
@@ -40,11 +40,11 @@ const metrics: { value: MapMetric; label: string; short: string; reading: string
     reading: `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms`,
   },
 ];
-const panelItems: { value: PanelName; label: string; icon: IconName }[] = [
-  { value: "layers", label: "Layer peta", icon: "layers" },
-  { value: "coverage", label: "Cakupan wilayah", icon: "globe" },
-  { value: "frequency", label: "Frekuensi", icon: "signal" },
-  { value: "summary", label: "Ringkasan data", icon: "activity" },
+const panelItems: { value: PanelName; label: string; short: string; icon: IconName }[] = [
+  { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
+  { value: "coverage", label: "Cakupan wilayah", short: "Cakupan", icon: "globe" },
+  { value: "frequency", label: "Frekuensi", short: "Frekuensi", icon: "signal" },
+  { value: "summary", label: "Ringkasan data", short: "Ringkasan", icon: "activity" },
 ];
 
 function percentage(value: number) {
@@ -73,10 +73,12 @@ function downloadCsv(rows: CoverageRow[]) {
 }
 
 export default function Dashboard() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [panel, setPanel] = useState<PanelName | null>("layers");
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
+  const [view3d, setView3d] = useState(false);
   const [regionName, setRegionName] = useState("Indonesia");
   const [focusLocation, setFocusLocation] = useState({
     name: regions[0].name,
@@ -86,6 +88,8 @@ export default function Dashboard() {
   });
   const [query, setQuery] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
   const [coverageSearch, setCoverageSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("Semua provinsi");
   const [coverageMetric, setCoverageMetric] = useState<CoverageMetric>("4G");
@@ -93,6 +97,7 @@ export default function Dashboard() {
   const [fullscreen, setFullscreen] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const finishInitialLoading = useCallback(() => setInitialLoading(false), []);
 
   const provinces = useMemo(
     () => [...new Set(coverageData.map((row) => row.province))].sort((a, b) => a.localeCompare(b, "id")),
@@ -112,6 +117,24 @@ export default function Dashboard() {
         coverageSort === "low" ? a[coverageMetric] - b[coverageMetric] : b[coverageMetric] - a[coverageMetric],
       );
   }, [coverageMetric, coverageSearch, coverageSort, provinceFilter]);
+  const suggestions = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("id-ID");
+    if (!normalized) {
+      return { regionHits: regions.slice(0, 6), districtHits: [] as CoverageRow[] };
+    }
+    return {
+      regionHits: regions
+        .filter((item) => item.name.toLocaleLowerCase("id-ID").includes(normalized) || item.label.toLocaleLowerCase("id-ID").includes(normalized))
+        .slice(0, 4),
+      districtHits: coverageData
+        .filter(
+          (row) =>
+            row.district.toLocaleLowerCase("id-ID").includes(normalized) ||
+            row.province.toLocaleLowerCase("id-ID").includes(normalized),
+        )
+        .slice(0, 6),
+    };
+  }, [query]);
   const coverageAverages = useMemo(
     () =>
       Object.fromEntries(
@@ -122,6 +145,9 @@ export default function Dashboard() {
       ) as Record<CoverageMetric, number>,
     [],
   );
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/i.test(navigator.platform)) setShortcutLabel("⌘ K");
+  }, []);
   useEffect(() => {
     function handleShortcuts(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -174,12 +200,27 @@ export default function Dashboard() {
       setSearchMessage("Wilayah belum ditemukan di data cakupan.");
       return;
     }
-    setCoverageSearch(query.trim());
+    openDistrict(query.trim());
+  }
+
+  function openDistrict(text: string) {
+    setQuery(text);
+    setCoverageSearch(text);
     setProvinceFilter("Semua provinsi");
     setCoverageMetric("4G");
     setCoverageSort("low");
     setPanel("coverage");
     setSearchMessage("");
+    setSearchFocused(false);
+    searchRef.current?.blur();
+  }
+
+  function pickRegion(region: (typeof regions)[number]) {
+    setQuery(region.label);
+    focusMap(region);
+    setSearchMessage("");
+    setSearchFocused(false);
+    searchRef.current?.blur();
   }
 
   async function toggleFullscreen() {
@@ -205,6 +246,11 @@ export default function Dashboard() {
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
               <span><strong>Hasil pengukuran</strong><small>{overlayOn ? "Overlay performa aktif" : "Overlay disembunyikan"}</small></span>
               <i className={`switch-track ${overlayOn ? "is-on" : ""}`} />
+            </button>
+            <button aria-pressed={view3d} className="map-layer-switch" disabled={!overlayOn} onClick={() => setView3d((value) => !value)}>
+              <span className="map-layer-symbol"><Icon name="layers" size={17} /></span>
+              <span><strong>Tampilan 3D</strong><small>{view3d ? "Batang tinggi = jumlah tes, hanya area layar" : "Miringkan peta, tampilkan batang"}</small></span>
+              <i className={`switch-track ${view3d ? "is-on" : ""}`} />
             </button>
             <div className="map-option-label">Tampilkan metrik</div>
             <div className="metric-choice-grid">
@@ -297,6 +343,7 @@ export default function Dashboard() {
                 <span className={`coverage-rank-dot ${row[coverageMetric] < 0.25 ? "is-low" : ""}`} />
                 <div><strong>{row.district}</strong><small>{row.province}</small></div>
                 <strong className={row[coverageMetric] < 0.25 ? "is-low" : ""}>{percentage(row[coverageMetric])}</strong>
+                <span aria-hidden="true" className="coverage-row-bar"><b className={row[coverageMetric] < 0.25 ? "is-low" : ""} style={{ width: `${Math.max(0, Math.min(1, row[coverageMetric])) * 100}%` }} /></span>
               </article>
             ))}
             {filteredCoverage.length === 0 && <p className="map-panel-empty">Tidak ada wilayah yang cocok.</p>}
@@ -357,13 +404,16 @@ export default function Dashboard() {
   const activePanelItem = panelItems.find((item) => item.value === panel);
 
   return (
-    <main className="map-workspace" ref={workspaceRef}>
+    <main aria-busy={initialLoading} className="map-workspace" ref={workspaceRef}>
       <MapView
-        key={focusLocation.key}
         focusLocation={focusLocation}
         metric={mapMetric}
         basemap={basemap}
         overlayOn={overlayOn}
+        view3d={view3d}
+        fullscreen={fullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        onInitialLoadComplete={finishInitialLoading}
       />
 
       <header className="map-topbar">
@@ -372,22 +422,42 @@ export default function Dashboard() {
           <span><strong>signal<span>map</span></strong><small>PETA JARINGAN NUSANTARA</small></span>
         </Link>
 
-        <form className="map-global-search" onSubmit={handleSearch}>
-          <Icon name="search" size={16} />
+        <form className="map-global-search" onSubmit={handleSearch} role="search">
+          <Icon name="search" size={17} />
           <input
             aria-label="Cari wilayah atau provinsi"
             autoComplete="off"
-            list="map-search-suggestions"
+            onBlur={() => setSearchFocused(false)}
             onChange={(event) => { setQuery(event.target.value); setSearchMessage(""); }}
-            placeholder="Cari wilayah atau provinsi"
+            onFocus={() => setSearchFocused(true)}
+            placeholder="Cari wilayah, kabupaten/kota, atau provinsi"
             ref={searchRef}
             value={query}
           />
-          <datalist id="map-search-suggestions">
-            {coverageData.map((row) => <option key={`${row.province}-${row.district}`} value={row.district} />)}
-            {regions.map((region) => <option key={region.name} value={region.name} />)}
-          </datalist>
-          <kbd>⌘ K</kbd>
+          {query && (
+            <button aria-label="Hapus pencarian" className="map-search-clear" onClick={() => { setQuery(""); setSearchMessage(""); searchRef.current?.focus(); }} onMouseDown={(event) => event.preventDefault()} type="button">
+              <Icon name="close" size={14} />
+            </button>
+          )}
+          <kbd>{shortcutLabel}</kbd>
+          {searchFocused && (suggestions.regionHits.length > 0 || suggestions.districtHits.length > 0) && (
+            <div className="map-search-results" onMouseDown={(event) => event.preventDefault()} role="listbox">
+              {suggestions.regionHits.length > 0 && <div className="map-search-heading">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>}
+              {suggestions.regionHits.map((region) => (
+                <button className="map-search-item" key={region.name} onClick={() => pickRegion(region)} role="option" type="button">
+                  <span className="map-search-item-icon"><Icon name="locate" size={15} /></span>
+                  <span><strong>{region.label}</strong><small>Pindahkan peta ke wilayah ini</small></span>
+                </button>
+              ))}
+              {suggestions.districtHits.length > 0 && <div className="map-search-heading">KABUPATEN/KOTA · DATA CAKUPAN</div>}
+              {suggestions.districtHits.map((row) => (
+                <button className="map-search-item" key={`${row.province}-${row.district}`} onClick={() => openDistrict(row.district)} role="option" type="button">
+                  <span className="map-search-item-icon"><Icon name="globe" size={15} /></span>
+                  <span><strong>{row.district}</strong><small>{row.province} · 4G {percentage(row["4G"])}</small></span>
+                </button>
+              ))}
+            </div>
+          )}
           {searchMessage && <span className="map-search-message" role="status">{searchMessage}</span>}
         </form>
 
@@ -402,6 +472,15 @@ export default function Dashboard() {
             </select>
             <Icon name="chevron-down" size={13} />
           </label>
+          <button
+            aria-pressed={view3d}
+            className={`map-3d-toggle ${view3d ? "is-active" : ""}`}
+            disabled={!overlayOn}
+            onClick={() => setView3d((value) => !value)}
+            title="Tampilan 3D"
+          >
+            <Icon name="layers" size={15} /><span>3D</span>
+          </button>
           <div aria-label="Pilih metrik peta" className="map-quick-metrics" role="group">
             {metrics.map((metric) => (
               <button
@@ -429,12 +508,14 @@ export default function Dashboard() {
             onClick={() => showPanel(item.value)}
             title={item.label}
           >
-            <Icon name={item.icon} size={19} />
+            <Icon name={item.icon} size={20} />
+            <span>{item.short}</span>
           </button>
         ))}
         <span className="map-rail-separator" />
         <button aria-label="Unduh data cakupan CSV" onClick={() => downloadCsv(filteredCoverage)} title="Ekspor cakupan CSV">
-          <Icon name="download" size={18} />
+          <Icon name="download" size={19} />
+          <span>CSV</span>
         </button>
       </nav>
 
@@ -457,9 +538,23 @@ export default function Dashboard() {
         <i />
         <span>{overlayOn ? "Ookla mobile" : "Overlay nonaktif"}</span>
       </div>
-      <button aria-label={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"} className="map-fullscreen-button" onClick={toggleFullscreen} title={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"}>
-        <Icon name="expand" size={17} />
-      </button>
+
+      <div
+        aria-hidden={!initialLoading}
+        aria-live="polite"
+        className={`dashboard-initial-loading${initialLoading ? "" : " is-ready"}`}
+        role="status"
+      >
+        <div className="dashboard-loading-card">
+          <span className="dashboard-loading-mark"><Icon name="signal" size={22} /></span>
+          <strong className="dashboard-loading-brand">signal<span>map</span></strong>
+          <p>Menyiapkan peta jaringan Indonesia</p>
+          <span className="dashboard-loading-status">
+            <i className="map-loading-spinner" />
+            Memuat peta dasar dan data pengukuran…
+          </span>
+        </div>
+      </div>
     </main>
   );
 }

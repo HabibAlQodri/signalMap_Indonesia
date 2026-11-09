@@ -3,6 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { formatNumber } from "../lib/network-data";
+import {
+  type Cell,
+  type CellLevel,
+  RAW_LEVEL,
+  MIN_CLUSTER_LEVEL,
+  MAX_CLUSTER_LEVEL,
+  forEachInBounds,
+  getLevel,
+  levelIndexFor,
+} from "../lib/cell-index";
 import ooklaSummary from "../lib/ookla-summary.json";
 import Icon from "./icon";
 
@@ -29,29 +39,36 @@ type MapViewProps = {
   metric: MapMetric;
   basemap: Basemap;
   overlayOn: boolean;
+  view3d?: boolean;
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onInitialLoadComplete?: () => void;
 };
 
 const metricDetails: Record<
   MapMetric,
-  { label: string; unit: string; bands: [string, string, string, string]; average: string }
+  { label: string; unit: string; bands: [string, string, string, string]; average: string; ends: [string, string] }
 > = {
   download: {
     label: "Kecepatan unduh",
     unit: "Mbps",
     bands: ["<20", "20–50", "50–100", ">100"],
     average: `${(ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
+    ends: ["Rendah", "Tinggi"],
   },
   upload: {
     label: "Kecepatan unggah",
     unit: "Mbps",
     bands: ["<20", "20–50", "50–100", ">100"],
     average: `${(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
+    ends: ["Rendah", "Tinggi"],
   },
   latency: {
     label: "Latensi",
     unit: "ms",
     bands: [">100", "60–100", "30–60", "≤30"],
     average: `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms`,
+    ends: ["Lambat", "Cepat"],
   },
 };
 
@@ -75,7 +92,14 @@ function colorForMetric(value: number, metric: MapMetric) {
   return "#d65e4d";
 }
 
-function metricValue(cell: number[], metric: MapMetric) {
+function qualityFor(value: number, metric: MapMetric) {
+  const color = colorForMetric(value, metric);
+  const label =
+    color === "#16a085" ? "Sangat baik" : color === "#83b968" ? "Baik" : color === "#e8ac48" ? "Cukup" : "Rendah";
+  return { color, label };
+}
+
+function metricValue(cell: Cell, metric: MapMetric) {
   return metric === "download" ? cell[2] : metric === "upload" ? cell[3] : cell[4];
 }
 
@@ -84,35 +108,211 @@ function formatCellMetric(value: number, metric: MapMetric) {
   return `${(value / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
 }
 
+/** Cari sel terdekat dari titik layar memakai indeks grid (tidak memindai semua data). */
+function findNearestCell(map: MapLibreMap, level: CellLevel, point: { x: number; y: number }, radius: number) {
+  const corners = [
+    map.unproject([point.x - radius, point.y - radius]),
+    map.unproject([point.x + radius, point.y - radius]),
+    map.unproject([point.x - radius, point.y + radius]),
+    map.unproject([point.x + radius, point.y + radius]),
+  ];
+  const west = Math.min(...corners.map((c) => c.lng));
+  const east = Math.max(...corners.map((c) => c.lng));
+  const south = Math.min(...corners.map((c) => c.lat));
+  const north = Math.max(...corners.map((c) => c.lat));
+  let nearest: Cell | null = null;
+  let nearestDistance = radius;
+  forEachInBounds(level, west, south, east, north, (cell) => {
+    const projected = map.project([cell[0], cell[1]]);
+    const distance = Math.hypot(point.x - projected.x, point.y - projected.y);
+    if (distance < nearestDistance) {
+      nearest = cell;
+      nearestDistance = distance;
+    }
+  });
+  return nearest as Cell | null;
+}
+
+/** ---- Mode 3D: batang ekstrusi untuk sel yang ada di area layar saat ini ---- */
+const SOURCE_3D = "cells-3d";
+const LAYER_3D = "cells-3d-bars";
+const MAX_BARS = 6000;
+const MAX_BAR_PX = 120;
+const PITCH_3D = 58;
+const BEARING_3D = -18;
+
+/** Meter per piksel layar pada zoom & lintang tertentu (tile 512px MapLibre). */
+function metersPerPixel(zoom: number, lat: number) {
+  return (78271.517 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
+}
+
+function buildBars(map: MapLibreMap, cells: Cell[], levels: Map<number, CellLevel>, metric: MapMetric) {
+  const zoom = map.getZoom();
+  const index = levelIndexFor(zoom);
+  const level = getLevel(levels, cells, index);
+  // Pitch membuat bounds mencakup area jauh di cakrawala; batasi lewat getBounds() lalu ambil sel terpadat.
+  const bounds = map.getBounds();
+  const picked: Cell[] = [];
+  forEachInBounds(level, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(), (cell) => {
+    picked.push(cell);
+  });
+  const visible = picked.length > MAX_BARS ? picked.sort((a, b) => b[5] - a[5]).slice(0, MAX_BARS) : picked;
+
+  const center = map.getCenter();
+  const maxHeight = MAX_BAR_PX * metersPerPixel(zoom, center.lat);
+  let maxTests = 1;
+  for (const cell of visible) if (cell[5] > maxTests) maxTests = cell[5];
+  const logMax = Math.log10(maxTests + 1) || 1;
+
+  // Lebar batang ≈ ukuran sel di layar (bin 10px untuk klaster, ±610 m untuk sel asli).
+  const widthDeg = (index === RAW_LEVEL ? 0.0055 : (10 * 360) / (512 * 2 ** index)) * 0.78;
+  const half = widthDeg / 2;
+
+  const features = visible.map((cell, i) => {
+    const [lng, lat] = cell;
+    const halfLat = half * Math.cos((lat * Math.PI) / 180);
+    const norm = Math.log10(cell[5] + 1) / logMax;
+    const value = metricValue(cell, metric);
+    return {
+      type: "Feature" as const,
+      properties: {
+        id: i,
+        color: colorForMetric(value, metric),
+        height: Math.max(maxHeight * 0.04, maxHeight * norm * norm),
+        d: cell[2],
+        u: cell[3],
+        l: cell[4],
+        t: cell[5],
+        v: cell[6],
+        n: cell[7] ?? 1,
+        lng,
+        lat,
+      },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [[
+          [lng - half, lat - halfLat],
+          [lng + half, lat - halfLat],
+          [lng + half, lat + halfLat],
+          [lng - half, lat + halfLat],
+          [lng - half, lat - halfLat],
+        ]],
+      },
+    };
+  });
+  return { type: "FeatureCollection" as const, features };
+}
+
+function cellFromProps(p: Record<string, number>): Cell {
+  return [p.lng, p.lat, p.d, p.u, p.l, p.t, p.v, p.n];
+}
+
+/** Sprite halo per warna: jauh lebih murah daripada membuat gradient untuk setiap sel. */
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function heatSprite(color: string) {
+  let sprite = spriteCache.get(color);
+  if (!sprite) {
+    sprite = document.createElement("canvas");
+    sprite.width = 48;
+    sprite.height = 48;
+    const g = sprite.getContext("2d");
+    if (g) {
+      const gradient = g.createRadialGradient(24, 24, 0, 24, 24, 24);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(0.28, color);
+      gradient.addColorStop(1, `${color}00`);
+      g.fillStyle = gradient;
+      g.fillRect(0, 0, 48, 48);
+    }
+    spriteCache.set(color, sprite);
+  }
+  return sprite;
+}
+
 export default function MapView({
   focusLocation,
   metric,
   basemap,
   overlayOn,
+  view3d = false,
+  fullscreen = false,
+  onToggleFullscreen,
+  onInitialLoadComplete,
 }: MapViewProps) {
   const [data, setData] = useState<OoklaData | null>(null);
   const [dataError, setDataError] = useState("");
   const [mapError, setMapError] = useState("");
   const [locationError, setLocationError] = useState("");
   const [mapReady, setMapReady] = useState(false);
-  const [selectedCell, setSelectedCell] = useState<number[] | null>(null);
+  const [mapRendered, setMapRendered] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const coordRef = useRef<HTMLSpanElement>(null);
+  const zoomRef = useRef<HTMLSpanElement>(null);
+  const compassRef = useRef<HTMLSpanElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const mapReadyRef = useRef(false);
   const dataRef = useRef<OoklaData | null>(null);
   const overlayOnRef = useRef(overlayOn);
+  const view3dRef = useRef(view3d);
+  const metricRef = useRef(metric);
   const basemapRef = useRef(basemap);
+  const hoverRef = useRef<Cell | null>(null);
+  const levelsRef = useRef<Map<number, CellLevel>>(new Map());
+  const initialFocusRef = useRef(focusLocation);
+  const lastFocusKeyRef = useRef(focusLocation.key);
+  const drawRef = useRef<(() => void) | null>(null);
   const cartoKey = process.env.NEXT_PUBLIC_CARTO_KEY;
+
+  // Sel terpilih hanya relevan saat overlay aktif.
+  const activeCell = overlayOn ? selectedCell : null;
 
   useEffect(() => {
     dataRef.current = data;
     overlayOnRef.current = overlayOn;
-  }, [data, overlayOn]);
+    view3dRef.current = view3d;
+    metricRef.current = metric;
+  }, [data, overlayOn, metric, view3d]);
 
   useEffect(() => {
     basemapRef.current = basemap;
   }, [basemap]);
+
+  // Cache level klaster dikosongkan saat data berganti, lalu dibangun bertahap saat browser idle
+  // supaya tidak ada lonjakan kerja di main thread ketika pengguna zoom.
+  useEffect(() => {
+    levelsRef.current = new Map();
+    if (!data) return;
+    const order: number[] = [];
+    for (let level = MIN_CLUSTER_LEVEL; level <= MAX_CLUSTER_LEVEL; level++) order.push(level);
+    order.push(RAW_LEVEL);
+    let index = 0;
+    let timer = 0;
+    const step = () => {
+      if (index >= order.length) return;
+      getLevel(levelsRef.current, data.cells, order[index++]);
+      timer = window.setTimeout(step, 40);
+    };
+    timer = window.setTimeout(step, 300);
+    return () => window.clearTimeout(timer);
+  }, [data]);
+
+  // Pindah wilayah cukup dengan flyTo — peta dan data tidak perlu dibuat/diunduh ulang.
+  useEffect(() => {
+    initialFocusRef.current = focusLocation;
+    if (lastFocusKeyRef.current === focusLocation.key) return;
+    lastFocusKeyRef.current = focusLocation.key;
+    setSelectedCell(null);
+    mapRef.current?.flyTo({
+      center: [focusLocation.center.lng, focusLocation.center.lat],
+      zoom: focusLocation.zoom,
+      duration: 1100,
+      essential: true,
+    });
+  }, [focusLocation]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -130,6 +330,12 @@ export default function MapView({
   }, []);
 
   useEffect(() => {
+    const dataFinished = data !== null || dataError !== "";
+    const mapFinished = mapRendered || mapError !== "" || !cartoKey;
+    if (dataFinished && mapFinished) onInitialLoadComplete?.();
+  }, [cartoKey, data, dataError, mapError, mapRendered, onInitialLoadComplete]);
+
+  useEffect(() => {
     const container = mapContainerRef.current;
     if (!container) return;
 
@@ -139,6 +345,46 @@ export default function MapView({
 
     let map: MapLibreMap | null = null;
     let cancelled = false;
+    let hoverFrame = 0;
+    let pending: { x: number; y: number; lat: number; lng: number } | null = null;
+
+    function syncHud() {
+      const current = mapRef.current;
+      if (!current) return;
+      if (zoomRef.current) zoomRef.current.textContent = `Zoom ${current.getZoom().toFixed(1)}`;
+      if (compassRef.current) compassRef.current.style.transform = `rotate(${-current.getBearing()}deg)`;
+    }
+
+    function updateHover(point: { x: number; y: number }) {
+      const current = mapRef.current;
+      const tip = tipRef.current;
+      const cells = dataRef.current?.cells;
+      let found: Cell | null = null;
+      if (current && cells && overlayOnRef.current && view3dRef.current) {
+        const hit = current.getLayer(LAYER_3D)
+          ? current.queryRenderedFeatures([point.x, point.y], { layers: [LAYER_3D] })[0]
+          : undefined;
+        found = hit ? cellFromProps(hit.properties as Record<string, number>) : null;
+      } else if (current && cells && overlayOnRef.current) {
+        found = findNearestCell(current, getLevel(levelsRef.current, cells, levelIndexFor(current.getZoom())), point, 11);
+      }
+      const sameCell = !!found && !!hoverRef.current && found[0] === hoverRef.current[0] && found[1] === hoverRef.current[1];
+      if (found !== hoverRef.current && !sameCell) {
+        hoverRef.current = found;
+        current?.getCanvas().style.setProperty("cursor", found ? "pointer" : "");
+        drawRef.current?.();
+      }
+      if (!tip) return;
+      if (!found) {
+        tip.style.display = "none";
+        return;
+      }
+      const value = metricValue(found, metricRef.current);
+      tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
+      tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
+      tip.style.display = "block";
+      tip.style.transform = `translate(${point.x + 14}px, ${point.y - 36}px)`;
+    }
 
     import("maplibre-gl")
       .then((maplibregl) => {
@@ -148,8 +394,8 @@ export default function MapView({
         map = new maplibregl.Map({
           container,
           style: styleUrl,
-          center: [focusLocation.center.lng, focusLocation.center.lat],
-          zoom: focusLocation.zoom,
+          center: [initialFocusRef.current.center.lng, initialFocusRef.current.center.lat],
+          zoom: initialFocusRef.current.zoom,
           minZoom: 3,
           maxZoom: 15,
           attributionControl: false,
@@ -158,33 +404,50 @@ export default function MapView({
         });
         mapRef.current = map;
 
+        map.addControl(new maplibregl.ScaleControl({ maxWidth: 96, unit: "metric" }), "bottom-right");
         map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
         map.on("style.load", () => {
           mapReadyRef.current = true;
           setMapReady(true);
           setMapError("");
+          syncHud();
         });
+        map.once("load", () => setMapRendered(true));
+        map.on("move", syncHud);
         map.on("error", (event) => {
           if (!mapReadyRef.current && event.error.message) setMapError(event.error.message);
         });
+        map.on("mousemove", (event) => {
+          pending = { x: event.point.x, y: event.point.y, lat: event.lngLat.lat, lng: event.lngLat.lng };
+          if (hoverFrame) return;
+          hoverFrame = window.requestAnimationFrame(() => {
+            hoverFrame = 0;
+            if (!pending) return;
+            if (coordRef.current) coordRef.current.textContent = `${pending.lat.toFixed(4)}°, ${pending.lng.toFixed(4)}°`;
+            updateHover(pending);
+          });
+        });
+        map.on("mouseout", () => {
+          if (hoverRef.current) {
+            hoverRef.current = null;
+            drawRef.current?.();
+          }
+          if (tipRef.current) tipRef.current.style.display = "none";
+        });
         map.on("click", (event) => {
           const currentData = dataRef.current;
-          if (!currentData || !overlayOnRef.current) {
+          if (!currentData || !overlayOnRef.current || !map) {
             setSelectedCell(null);
             return;
           }
-          let nearest: number[] | null = null;
-          let nearestDistance = 13;
-          for (const cell of currentData.cells) {
-            const point = map?.project([cell[0], cell[1]]);
-            if (!point) continue;
-            const distance = Math.hypot(event.point.x - point.x, event.point.y - point.y);
-            if (distance < nearestDistance) {
-              nearest = cell;
-              nearestDistance = distance;
-            }
+          if (view3dRef.current) {
+            const hit = map.getLayer(LAYER_3D)
+              ? map.queryRenderedFeatures([event.point.x, event.point.y], { layers: [LAYER_3D] })[0]
+              : undefined;
+            setSelectedCell(hit ? cellFromProps(hit.properties as Record<string, number>) : null);
+            return;
           }
-          setSelectedCell(nearest);
+          setSelectedCell(findNearestCell(map, getLevel(levelsRef.current, currentData.cells, levelIndexFor(map.getZoom())), event.point, 13));
         });
       })
       .catch((error: unknown) => {
@@ -193,12 +456,14 @@ export default function MapView({
 
     return () => {
       cancelled = true;
+      if (hoverFrame) window.cancelAnimationFrame(hoverFrame);
       mapReadyRef.current = false;
+      hoverRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
       map = null;
     };
-  }, [cartoKey, focusLocation]);
+  }, [cartoKey]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -214,14 +479,37 @@ export default function MapView({
     const canvas = canvasRef.current;
     if (!map || !canvas) return;
 
+    function placePopup(width: number, height: number) {
+      const popup = popupRef.current;
+      const currentMap = mapRef.current;
+      if (!popup || !currentMap) return;
+      if (!activeCell) {
+        popup.style.display = "none";
+        return;
+      }
+      const point = currentMap.project([activeCell[0], activeCell[1]]);
+      const inside = point.x >= 0 && point.x <= width && point.y >= 0 && point.y <= height;
+      popup.style.display = inside ? "block" : "none";
+      popup.style.transform = `translate(${point.x}px, ${point.y}px)`;
+      popup.classList.toggle("is-below", point.y < 290);
+      const half = 146;
+      const shift = point.x - half < 8 ? 8 - (point.x - half) : point.x + half > width - 8 ? width - 8 - (point.x + half) : 0;
+      popup.style.setProperty("--shift-x", `${shift}px`);
+    }
+
     function drawCells() {
       const currentMap = mapRef.current;
       const currentCanvas = canvasRef.current;
       if (!currentMap || !currentCanvas) return;
       const { clientWidth: width, clientHeight: height } = currentMap.getContainer();
       const scale = Math.min(window.devicePixelRatio || 1, 2);
-      currentCanvas.width = Math.round(width * scale);
-      currentCanvas.height = Math.round(height * scale);
+      const pixelWidth = Math.round(width * scale);
+      const pixelHeight = Math.round(height * scale);
+      // Mengubah width/height mengalokasikan ulang buffer: lakukan hanya jika ukuran benar-benar berubah.
+      if (currentCanvas.width !== pixelWidth || currentCanvas.height !== pixelHeight) {
+        currentCanvas.width = pixelWidth;
+        currentCanvas.height = pixelHeight;
+      }
       const context = currentCanvas.getContext("2d");
       if (!context) {
         setMapError("Canvas peta tidak tersedia di browser ini.");
@@ -229,49 +517,75 @@ export default function MapView({
       }
       context.setTransform(scale, 0, 0, scale, 0, 0);
       context.clearRect(0, 0, width, height);
-      if (!data || !overlayOn) return;
+      placePopup(width, height);
+      if (!data || !overlayOn || view3d) return;
 
       const zoom = currentMap.getZoom();
       const heatRadius = Math.max(4, Math.min(9, 11 - zoom * 0.35));
       const pointRadius = Math.max(2.2, Math.min(4.5, 2.1 + (zoom - 4) * 0.2));
+      const level = getLevel(levelsRef.current, data.cells, levelIndexFor(zoom));
       const bounds = currentMap.getBounds();
       const drawHeat = !currentMap.isMoving();
-      for (const cell of data.cells) {
-        if (!bounds.contains([cell[0], cell[1]])) continue;
+      const pad = heatRadius + 6;
+      const batches = new Map<string, { color: string; alpha: number; points: number[] }>();
+
+      forEachInBounds(level, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(), (cell) => {
         const point = currentMap.project([cell[0], cell[1]]);
-        if (
-          point.x < -heatRadius ||
-          point.y < -heatRadius ||
-          point.x > width + heatRadius ||
-          point.y > height + heatRadius
-        ) continue;
-
+        if (point.x < -pad || point.y < -pad || point.x > width + pad || point.y > height + pad) return;
         const color = colorForMetric(metricValue(cell, metric), metric);
+        const strength = Math.log10(cell[5] + 1);
         if (drawHeat) {
-          const confidence = Math.max(0.07, Math.min(0.2, 0.065 + Math.log10(cell[5] + 1) * 0.035));
-          const heat = context.createRadialGradient(point.x, point.y, 0, point.x, point.y, heatRadius);
-          heat.addColorStop(0, color);
-          heat.addColorStop(0.28, color);
-          heat.addColorStop(1, "transparent");
-          context.globalAlpha = confidence;
-          context.fillStyle = heat;
-          context.beginPath();
-          context.arc(point.x, point.y, heatRadius, 0, Math.PI * 2);
-          context.fill();
+          context.globalAlpha = Math.max(0.07, Math.min(0.2, 0.065 + strength * 0.035));
+          context.drawImage(heatSprite(color), point.x - heatRadius, point.y - heatRadius, heatRadius * 2, heatRadius * 2);
         }
+        const base = 0.62 + strength * 0.12;
+        const alpha = base < 0.78 ? 0.72 : base < 0.88 ? 0.82 : 0.92;
+        const radius = pointRadius + Math.min(2.5, Math.log10(cell[7] ?? 1) * 1.3);
+        const key = `${color}${alpha}`;
+        let batch = batches.get(key);
+        if (!batch) {
+          batch = { color, alpha, points: [] };
+          batches.set(key, batch);
+        }
+        batch.points.push(point.x, point.y, radius);
+      });
 
-        context.globalAlpha = Math.max(0.68, Math.min(0.95, 0.62 + Math.log10(cell[5] + 1) * 0.12));
-        context.fillStyle = color;
+      // Titik digambar per kelompok warna/opasitas: satu path + satu fill, bukan satu per sel.
+      for (const batch of batches.values()) {
         context.beginPath();
-        context.arc(point.x, point.y, pointRadius, 0, Math.PI * 2);
+        for (let i = 0; i < batch.points.length; i += 3) {
+          const x = batch.points[i];
+          const y = batch.points[i + 1];
+          const r = batch.points[i + 2];
+          context.moveTo(x + r, y);
+          context.arc(x, y, r, 0, Math.PI * 2);
+        }
+        context.globalAlpha = batch.alpha;
+        context.fillStyle = batch.color;
         context.fill();
         context.globalAlpha = 0.68;
         context.strokeStyle = "#fff";
         context.lineWidth = 0.8;
         context.stroke();
       }
-      if (selectedCell) {
-        const point = currentMap.project([selectedCell[0], selectedCell[1]]);
+
+      const hovered = hoverRef.current;
+      if (hovered && hovered !== activeCell) {
+        const point = currentMap.project([hovered[0], hovered[1]]);
+        context.globalAlpha = 1;
+        context.beginPath();
+        context.arc(point.x, point.y, pointRadius + 3, 0, Math.PI * 2);
+        context.strokeStyle = "#fff";
+        context.lineWidth = 2;
+        context.stroke();
+        context.beginPath();
+        context.arc(point.x, point.y, pointRadius + 4.5, 0, Math.PI * 2);
+        context.strokeStyle = "rgb(38 60 53 / 55%)";
+        context.lineWidth = 1;
+        context.stroke();
+      }
+      if (activeCell) {
+        const point = currentMap.project([activeCell[0], activeCell[1]]);
         const radius = pointRadius + 2;
         context.globalAlpha = 1;
         context.beginPath();
@@ -288,19 +602,105 @@ export default function MapView({
       context.globalAlpha = 1;
     }
 
-    map.on("move", drawCells);
-    map.on("moveend", drawCells);
-    map.on("resize", drawCells);
+    // Gabungkan banyak event move/resize menjadi satu gambar per frame.
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        drawCells();
+      });
+    };
+
+    drawRef.current = schedule;
+    map.on("move", schedule);
+    map.on("moveend", schedule);
+    map.on("resize", schedule);
     drawCells();
     return () => {
-      map.off("move", drawCells);
-      map.off("moveend", drawCells);
-      map.off("resize", drawCells);
+      if (frame) window.cancelAnimationFrame(frame);
+      drawRef.current = null;
+      map.off("move", schedule);
+      map.off("moveend", schedule);
+      map.off("resize", schedule);
     };
-  }, [data, metric, overlayOn, selectedCell, basemap, focusLocation, mapReady]);
+  }, [data, metric, overlayOn, activeCell, basemap, mapReady, view3d]);
+
+  // Kamera: miringkan peta saat 3D aktif, kembalikan saat nonaktif.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (view3d) map.easeTo({ pitch: PITCH_3D, bearing: BEARING_3D, duration: 800 });
+    else map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+  }, [view3d, mapReady]);
+
+  // Batang 3D hanya dibangun untuk sel di area layar; dibangun ulang tiap gerakan selesai.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const active = view3d && overlayOn && !!data;
+
+    function removeLayer() {
+      if (!map) return;
+      if (map.getLayer(LAYER_3D)) map.removeLayer(LAYER_3D);
+      if (map.getSource(SOURCE_3D)) map.removeSource(SOURCE_3D);
+    }
+
+    if (!active || !data) {
+      removeLayer();
+      return;
+    }
+
+    function refresh() {
+      if (!map || !data) return;
+      const collection = buildBars(map, data.cells, levelsRef.current, metric);
+      const source = map.getSource(SOURCE_3D) as { setData?: (d: unknown) => void } | undefined;
+      if (source?.setData) {
+        source.setData(collection);
+        return;
+      }
+      map.addSource(SOURCE_3D, { type: "geojson", data: collection });
+      map.addLayer({
+        id: LAYER_3D,
+        type: "fill-extrusion",
+        source: SOURCE_3D,
+        paint: {
+          "fill-extrusion-color": ["get", "color"],
+          "fill-extrusion-height": ["get", "height"],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.9,
+          "fill-extrusion-vertical-gradient": true,
+        },
+      });
+    }
+
+    refresh();
+    map.on("moveend", refresh);
+    return () => {
+      map.off("moveend", refresh);
+    };
+  }, [data, metric, overlayOn, view3d, mapReady]);
+
+  // Tandai batang terpilih (putih) tanpa membangun ulang data.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !view3d || !map.getLayer(LAYER_3D)) return;
+    map.setPaintProperty(
+      LAYER_3D,
+      "fill-extrusion-color",
+      activeCell
+        ? ["case", ["all", ["==", ["get", "lng"], activeCell[0]], ["==", ["get", "lat"], activeCell[1]]], "#263c35", ["get", "color"]]
+        : ["get", "color"],
+    );
+  }, [activeCell, view3d, mapReady, data, metric]);
 
   function zoomMap(amount: number) {
     mapRef.current?.zoomTo(Math.min(15, Math.max(3, mapRef.current.getZoom() + amount)), { duration: 180 });
+  }
+
+  function resetNorth() {
+    if (view3d) mapRef.current?.resetNorth({ duration: 400 });
+    else mapRef.current?.resetNorthPitch({ duration: 400 });
   }
 
   function locateUser() {
@@ -321,50 +721,117 @@ export default function MapView({
     );
   }
 
-  const selectedMetric = selectedCell ? metricValue(selectedCell, metric) : null;
+  const selectedMetric = activeCell ? metricValue(activeCell, metric) : null;
+  const details = metricDetails[metric];
 
   return (
-    <div aria-label="Peta interaktif performa jaringan Indonesia" className={`map-canvas map-stage basemap-${basemap}`} role="application">
+    <div aria-label="Peta interaktif performa jaringan Indonesia" className={`map-canvas map-stage basemap-${basemap} ${view3d ? "is-3d" : ""}`} role="application">
       <div className="maplibre-container" ref={mapContainerRef} />
       <canvas aria-hidden="true" className="map-data-canvas" ref={canvasRef} />
 
-      <div className="map-zoom-controls">
-        <button aria-label="Perbesar peta" disabled={!mapReady} onClick={() => zoomMap(1)}><Icon name="plus" size={17} /></button>
-        <button aria-label="Perkecil peta" disabled={!mapReady} onClick={() => zoomMap(-1)}><Icon name="zoom-out" size={17} /></button>
-        <button aria-label="Gunakan lokasi saya" disabled={!mapReady} onClick={locateUser}><Icon name="locate" size={16} /></button>
+      <div className="map-hover-tip" ref={tipRef} aria-hidden="true" />
+
+      <div aria-live="polite" className="map-cell-popup" ref={popupRef}>
+        {activeCell && (
+          <div className="map-cell-popup-card" role="dialog" aria-label="Detail sel pengukuran">
+            <div className="map-cell-popup-head">
+              <div>
+                <strong>{(activeCell[7] ?? 1) > 1 ? `Area gabungan · ${formatNumber(activeCell[7])} sel` : "Sel pengukuran"}</strong>
+                <small>{activeCell[1].toFixed(3)}°, {activeCell[0].toFixed(3)}°</small>
+              </div>
+              <button aria-label="Tutup detail sel" onClick={() => setSelectedCell(null)}><Icon name="close" size={14} /></button>
+            </div>
+            <div className="map-cell-metrics">
+              {(["download", "upload", "latency"] as const).map((key) => {
+                const value = metricValue(activeCell, key);
+                const quality = qualityFor(value, key);
+                return (
+                  <div className={`map-cell-row ${key === metric ? "is-current" : ""}`} key={key}>
+                    <i style={{ background: quality.color }} />
+                    <span>{metricDetails[key].label}<em style={{ color: quality.color }}>{quality.label}</em></span>
+                    <strong>{formatCellMetric(value, key)}</strong>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="map-cell-foot">
+              <span><b>{formatNumber(activeCell[5])}</b> tes</span>
+              <span><b>{formatNumber(activeCell[6])}</b> perangkat</span>
+              <span>Ookla · Q1 2026</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="map-control-stack">
+        <div className="map-control-group">
+          <button aria-label="Perbesar peta" disabled={!mapReady} onClick={() => zoomMap(1)} title="Perbesar"><Icon name="plus" size={18} /></button>
+          <button aria-label="Perkecil peta" disabled={!mapReady} onClick={() => zoomMap(-1)} title="Perkecil"><Icon name="zoom-out" size={18} /></button>
+        </div>
+        <div className="map-control-group">
+          <button aria-label="Arahkan peta ke utara" disabled={!mapReady} onClick={resetNorth} title="Reset arah utara">
+            <span className="map-compass-icon" ref={compassRef}><Icon name="compass" size={18} /></span>
+          </button>
+          <button aria-label="Gunakan lokasi saya" disabled={!mapReady} onClick={locateUser} title="Lokasi saya"><Icon name="locate" size={17} /></button>
+          {onToggleFullscreen && (
+            <button
+              aria-label={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"}
+              aria-pressed={fullscreen}
+              onClick={onToggleFullscreen}
+              title={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"}
+            >
+              <Icon name="expand" size={17} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="map-floating-card map-performance-card">
         <div className="map-performance-top">
           <span className="map-performance-dot" />
-          <span>{metricDetails[metric].label.toLocaleUpperCase("id-ID")}</span>
+          <span>{details.label.toLocaleUpperCase("id-ID")}</span>
           <i />
           <span>OOKLA · Q1 2026</span>
         </div>
         <strong className="map-performance-value">
-          {selectedMetric === null ? metricDetails[metric].average : formatCellMetric(selectedMetric, metric)}
+          {selectedMetric === null ? details.average : formatCellMetric(selectedMetric, metric)}
         </strong>
         <div className="map-performance-bottom">
-          <span>{selectedCell ? `${formatNumber(selectedCell[5])} tes di sel ini` : "Rata-rata nasional tertimbang tes"}</span>
-          <span>{selectedCell ? `${formatNumber(selectedCell[6])} perangkat` : `${formatNumber(ooklaSummary.tests)} tes`}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[5])} tes di ${(activeCell[7] ?? 1) > 1 ? "area" : "sel"} ini` : "Rata-rata nasional tertimbang tes"}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[6])} perangkat` : `${formatNumber(ooklaSummary.tests)} tes`}</span>
         </div>
-        {selectedCell && <div className="map-performance-coordinate">{selectedCell[1].toFixed(3)}°, {selectedCell[0].toFixed(3)}°</div>}
+        {activeCell && <div className="map-performance-coordinate">{activeCell[1].toFixed(3)}°, {activeCell[0].toFixed(3)}°</div>}
       </div>
 
+      {!data && !dataError && (
+        <div className="map-loading-chip" role="status"><span className="map-loading-spinner" />Memuat data pengukuran…</div>
+      )}
       {!cartoKey && <div className="map-location-error" role="status">Basemap belum dikonfigurasi. Isi NEXT_PUBLIC_CARTO_KEY di .env.local lalu jalankan ulang aplikasi.</div>}
       {(locationError || mapError) && <div className="map-location-error" role="status">{locationError || mapError}</div>}
       {dataError && <div className="map-data-error" role="alert">{dataError}</div>}
+
       <div className="map-legend map-floating-card">
         <div className="map-legend-heading">
-          <strong>{metricDetails[metric].label}</strong>
-          <span>{metricDetails[metric].unit}</span>
+          <strong>{details.label}</strong>
+          <span>{details.unit}</span>
         </div>
         <div className="map-legend-colors">
-          {metricDetails[metric].bands.map((band) => <i key={band} />)}
+          {details.bands.map((band) => <i key={band} />)}
         </div>
         <div className="map-legend-bands">
-          {metricDetails[metric].bands.map((band) => <span key={band}>{band}</span>)}
+          {details.bands.map((band) => <span key={band}>{band}</span>)}
         </div>
+        <div className="map-legend-ends">
+          <span>{details.ends[0]}</span>
+          <span>{details.ends[1]}</span>
+        </div>
+        <p className="map-legend-note">{view3d ? "Tinggi batang = jumlah tes · warna = metrik · klik kanan + geser untuk memutar" : "Titik = sel ukur · klik untuk detail"}</p>
+      </div>
+
+      <div className="map-hud" aria-hidden="true">
+        <span ref={coordRef}>—</span>
+        <i />
+        <span ref={zoomRef}>Zoom —</span>
       </div>
     </div>
   );

@@ -1,0 +1,7 @@
+
+/* ---- Tampilan 3D ---- */
+.map-3d-toggle { display: inline-flex; height: 39px; align-items: center; gap: 6px; border: 1px solid #e1e9e4; border-radius: 8px; background: #fff; padding: 0 11px; color: #5f716b; font-size: 11px; font-weight: 680; cursor: pointer; }
+.map-3d-toggle:hover { background: #eaf3ef; color: #277e69; }
+.map-3d-toggle.is-active { border-color: #d8e9df; background: #eaf3ef; color: #277e69; box-shadow: inset 0 -2px #4a9d7e; }
+.map-3d-toggle:disabled, .map-layer-switch:disabled { cursor: not-allowed; opacity: 0.5; }
+.map-stage.is-3d .map-legend-note { max-width: 170px; }
