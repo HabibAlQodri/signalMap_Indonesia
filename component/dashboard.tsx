@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import coverageData from "../lib/coverage-data.json";
 import frequencyData from "../lib/frequency-data.json";
@@ -519,10 +520,15 @@ export default function Dashboard() {
       />
 
       <header className="map-topbar">
-        <h1 className="sr-only">SignalMap: peta performa jaringan seluler Indonesia</h1>
-        <Link aria-label="SignalMap peta jaringan" className="map-brand-plate" href="/">
-          <span className="map-brand-mark"><Icon name="signal" size={21} /></span>
-          <span><strong>signal<span>map</span></strong><small>PETA JARINGAN NUSANTARA</small></span>
+        <h1 className="sr-only">SinyalNusa: eksplorasi kualitas dan cakupan jaringan Indonesia</h1>
+        <Link aria-label="SinyalNusa, peta kualitas dan cakupan jaringan" className="map-brand-plate" href="/">
+          <Image
+            alt=""
+            className="map-brand-logo"
+            height={756}
+            src="/SinyalNusa_Gradient_Tech_Logo-removebg.png"
+            width={2079}
+          />
         </Link>
 
         <form className="map-global-search" onSubmit={handleSearch} role="search">
@@ -674,7 +680,7 @@ export default function Dashboard() {
         <aside aria-label={activePanelItem?.label ?? "Panel peta"} className="map-side-panel" id="map-side-panel">
           <div className="map-panel-header">
             <div>
-              <span className="map-panel-kicker">SIGNALMAP / EKSPLORASI</span>
+              <span className="map-panel-kicker">SINYALNUSA / EKSPLORASI</span>
               <h2>{activePanelItem?.label}</h2>
             </div>
             <button aria-label="Tutup panel (Esc)" className="map-panel-close" onClick={closePanel} ref={panelCloseRef} type="button"><Icon name="close" size={17} /></button>
@@ -699,8 +705,13 @@ export default function Dashboard() {
         role="status"
       >
         <div className="dashboard-loading-card">
-          <span className="dashboard-loading-mark"><Icon name="signal" size={22} /></span>
-          <strong className="dashboard-loading-brand">signal<span>map</span></strong>
+          <Image
+            alt=""
+            className="dashboard-loading-logo"
+            height={756}
+            src="/SinyalNusa_Gradient_Tech_Logo-removebg.png"
+            width={2079}
+          />
           <p>Menyiapkan peta jaringan Indonesia</p>
           <span className="dashboard-loading-status">
             <i className="map-loading-spinner" />

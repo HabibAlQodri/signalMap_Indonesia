@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SignalMap | Peta Infrastruktur Seluler",
+  title: "SinyalNusa | Eksplorasi Kualitas dan Cakupan Jaringan",
   description:
     "Peta interaktif performa jaringan seluler, cakupan kabupaten/kota, dan frekuensi Indonesia.",
 };

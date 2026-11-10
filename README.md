@@ -1,4 +1,4 @@
-# SignalMap
+# SinyalNusa | Eksplorasi Kualitas dan Cakupan Jaringan
 
 Peta layar penuh untuk eksplorasi performa jaringan mobile Ookla, cakupan teknologi per kabupaten/kota, dan alokasi pita frekuensi di Indonesia.
 
