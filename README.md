@@ -13,6 +13,16 @@ Buka [http://localhost:3000](http://localhost:3000).
 
 Basemap vector CARTO Voyager memerlukan `NEXT_PUBLIC_CARTO_KEY`. Salin `.env.example` sebagai `.env.local`, masukkan API key CARTO, lalu jalankan ulang aplikasi. Key ini digunakan oleh browser untuk meminta style/tiles; batasi key pada domain aplikasi dari pengaturan CARTO.
 
+## Deploy ke Cloudflare Pages
+
+Project menggunakan static export Next.js. Atur Cloudflare Pages dengan:
+
+- **Build command:** `npm run build`
+- **Build output directory:** `out`
+- **Environment variable:** `NEXT_PUBLIC_CARTO_KEY` dengan API key CARTO yang dibatasi ke domain deploy
+
+Jangan gunakan `next start` untuk deployment Cloudflare Pages static.
+
 ## Data yang digunakan
 
 - `lib/ookla_indonesia_mobile.parquet`: pengukuran Ookla mobile kuartal 1 2026. Data asli berisi 237.566 sel. Peta memakai sel quadkey level 12 dengan agregasi berbobot jumlah tes; angka ringkasan juga ditimbang menurut jumlah tes.
