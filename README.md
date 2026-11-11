@@ -1,6 +1,6 @@
-# SinyalNusa | Eksplorasi Kualitas dan Cakupan Jaringan
+# SinyalNusa | Eksplorasi Kualitas Jaringan
 
-Peta layar penuh untuk eksplorasi performa jaringan mobile Ookla, cakupan teknologi per kabupaten/kota, dan alokasi pita frekuensi di Indonesia.
+Peta layar penuh untuk eksplorasi performa jaringan mobile dan fixed broadband Ookla di Indonesia dan sekitarnya.
 
 ## Menjalankan aplikasi
 
@@ -26,10 +26,8 @@ Jangan gunakan `next start` untuk deployment Cloudflare Pages static.
 ## Data yang digunakan
 
 - `lib/data_ookla`: sumber Parquet Ookla mobile dan fixed per kuartal. Skrip memilih lima tahun mundur dari periode terbaru yang tersedia; berkas saat ini mencakup 2021-10 sampai 2026-07 (20 kuartal, karena periode 2021-07 tidak tersedia). Data dibatasi ke area sekitar Indonesia (bujur 90–145°, lintang -15–15°), lalu diagregasi ke quadkey level 12 dengan bobot jumlah tes. Peta memuat hanya satu jenis jaringan dan satu periode yang dipilih.
-- `lib/data-coverage-jaringan-telekomunikasi.xlsx`: persentase 2G, 3G, 4G, dan 5G untuk 515 kabupaten/kota. Tahun/periode dan metode pembobotan tidak tercantum di lembar sumber; dashboard menyebut rata-rata sederhana antarwilayah, bukan cakupan berbobot penduduk.
-- `lib/data-frekuensi-mobile-broadband-per-2023.xlsx`: pita frekuensi radio, lebar pita, dan pemegang IPFR untuk 2023. Data ini tidak menunjukkan performa aktual operator.
 
-Peta menyediakan pilihan metrik unduh/unggah/latensi, tiga gaya peta dasar, pencarian wilayah, fokus lokasi perangkat, serta panel layer, ringkasan data, daftar cakupan, dan frekuensi. Data cakupan dan frekuensi tidak dipadankan ke sel Ookla karena sumber tidak menyediakan batas geografis maupun pengenal wilayah bersama.
+Peta berfokus pada tren performa Ookla mobile/fixed dalam grafik dan tabel tahunan atau kuartalan, dengan jumlah tes per periode, ekspor CSV, pilihan metrik, dan filter wilayah perkiraan berbasis kotak koordinat (bukan batas administrasi). Periode yang ditampilkan mengikuti arsip lokal Ookla yang tersedia; ini bukan pengukuran langsung.
 
 ## Membangun ulang data turunan
 
@@ -40,4 +38,4 @@ python -m pip install duckdb
 python scripts/prepare-network-data.py
 ```
 
-Skrip menghasilkan ringkasan periode di `lib/ookla-periods.json` dan satu JSON agregat per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy.
+Skrip menghasilkan ringkasan periode di `lib/ookla-periods.json`, analisis historis di `lib/ookla-analysis.json`, dan satu JSON agregat peta per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy. Jika Parquet sudah dipindahkan tetapi semua JSON agregat masih tersedia, indeks analisis dapat dibuat ulang dengan `python scripts/prepare-network-data.py --analysis-only`.

@@ -3,8 +3,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import coverageData from "../lib/coverage-data.json";
-import frequencyData from "../lib/frequency-data.json";
 import { formatNumber, regions } from "../lib/network-data";
 import ooklaPeriods from "../lib/ookla-periods.json";
 import {
@@ -15,33 +13,19 @@ import {
 } from "../lib/ookla-data";
 import Icon, { type IconName } from "./icon";
 import MapView, { type Basemap, type MapMetric } from "./mapview";
+import AnalysisPanel from "./analysis-panel";
 
-type CoverageMetric = "2G" | "3G" | "4G" | "5G";
-type CoverageRow = (typeof coverageData)[number];
-type PanelName = "layers" | "coverage" | "frequency" | "summary";
+type PanelName = "layers" | "analysis";
 
-const coverageMetrics: CoverageMetric[] = ["2G", "3G", "4G", "5G"];
-const metricLabels: Record<CoverageMetric, string> = {
-  "2G": "Cakupan 2G",
-  "3G": "Cakupan 3G",
-  "4G": "Cakupan 4G",
-  "5G": "Cakupan 5G",
-};
 const metrics: { value: MapMetric; label: string; short: string }[] = [
   { value: "download", label: "Kecepatan unduh", short: "Unduh" },
   { value: "upload", label: "Kecepatan unggah", short: "Unggah" },
   { value: "latency", label: "Latensi", short: "Latensi" },
 ];
 const panelItems: { value: PanelName; label: string; short: string; icon: IconName }[] = [
+  { value: "analysis", label: "Analisis tren", short: "Analisis", icon: "activity" },
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
-  { value: "coverage", label: "Cakupan wilayah", short: "Cakupan", icon: "globe" },
-  { value: "frequency", label: "Frekuensi", short: "Frekuensi", icon: "signal" },
-  { value: "summary", label: "Ringkasan data", short: "Ringkasan", icon: "activity" },
 ];
-
-function percentage(value: number) {
-  return `${(value * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
-}
 
 function metricReading(metric: MapMetric, data: OoklaMetadata | null) {
   if (!data) return "—";
@@ -54,30 +38,9 @@ function metricReading(metric: MapMetric, data: OoklaMetadata | null) {
   return `${data.avgLatencyMs.toLocaleString("id-ID")} ms`;
 }
 
-function downloadCsv(rows: CoverageRow[]) {
-  const content = [
-    ["Provinsi", "Kabupaten/Kota", "2G", "3G", "4G", "5G"],
-    ...rows.map((row) => [
-      row.province,
-      row.district,
-      ...coverageMetrics.map((metric) => percentage(row[metric])),
-    ]),
-  ]
-    .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
-    .join("\r\n");
-  const url = URL.createObjectURL(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "signalmap-cakupan-kabupaten-kota.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export default function Dashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
-  const [panel, setPanel] = useState<PanelName | null>(null);
+  const [panel, setPanel] = useState<PanelName | null>("analysis");
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
   const [ooklaNetworkType, setOoklaNetworkType] = useState<OoklaNetworkType>("mobile");
   const [ooklaPeriod, setOoklaPeriod] = useState(ooklaPeriods.latestPeriod);
@@ -100,10 +63,6 @@ export default function Dashboard() {
   const [searchMessage, setSearchMessage] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
-  const [coverageSearch, setCoverageSearch] = useState("");
-  const [provinceFilter, setProvinceFilter] = useState("Semua provinsi");
-  const [coverageMetric, setCoverageMetric] = useState<CoverageMetric>("4G");
-  const [coverageSort, setCoverageSort] = useState<"low" | "high">("low");
   const [fullscreen, setFullscreen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [announcement, setAnnouncement] = useState("");
@@ -119,52 +78,15 @@ export default function Dashboard() {
   const finishInitialLoading = useCallback(() => setInitialLoading(false), []);
   const updateOoklaSummary = useCallback((data: OoklaMetadata | null) => setLoadedOoklaSummary(data), []);
 
-  const provinces = useMemo(
-    () => [...new Set(coverageData.map((row) => row.province))].sort((a, b) => a.localeCompare(b, "id")),
-    [],
-  );
-  const filteredCoverage = useMemo(() => {
-    const normalizedSearch = coverageSearch.trim().toLocaleLowerCase("id-ID");
-    return coverageData
-      .filter((row) => provinceFilter === "Semua provinsi" || row.province === provinceFilter)
-      .filter(
-        (row) =>
-          !normalizedSearch ||
-          row.district.toLocaleLowerCase("id-ID").includes(normalizedSearch) ||
-          row.province.toLocaleLowerCase("id-ID").includes(normalizedSearch),
-      )
-      .sort((a, b) =>
-        coverageSort === "low" ? a[coverageMetric] - b[coverageMetric] : b[coverageMetric] - a[coverageMetric],
-      );
-  }, [coverageMetric, coverageSearch, coverageSort, provinceFilter]);
   const suggestions = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("id-ID");
     if (!normalized) {
-      return { regionHits: regions.slice(0, 6), districtHits: [] as CoverageRow[] };
+      return regions.slice(0, 6);
     }
-    return {
-      regionHits: regions
-        .filter((item) => item.name.toLocaleLowerCase("id-ID").includes(normalized) || item.label.toLocaleLowerCase("id-ID").includes(normalized))
-        .slice(0, 4),
-      districtHits: coverageData
-        .filter(
-          (row) =>
-            row.district.toLocaleLowerCase("id-ID").includes(normalized) ||
-            row.province.toLocaleLowerCase("id-ID").includes(normalized),
-        )
-        .slice(0, 6),
-    };
+    return regions
+      .filter((item) => item.name.toLocaleLowerCase("id-ID").includes(normalized) || item.label.toLocaleLowerCase("id-ID").includes(normalized))
+      .slice(0, 6);
   }, [query]);
-  const coverageAverages = useMemo(
-    () =>
-      Object.fromEntries(
-        coverageMetrics.map((metric) => [
-          metric,
-          coverageData.reduce((sum, row) => sum + row[metric], 0) / coverageData.length,
-        ]),
-      ) as Record<CoverageMetric, number>,
-    [],
-  );
   useEffect(() => {
     if (/Mac|iPhone|iPad/i.test(navigator.platform)) setShortcutLabel("⌘ K");
   }, []);
@@ -211,28 +133,7 @@ export default function Dashboard() {
       setSearchMessage("");
       return;
     }
-    const district = coverageData.find(
-      (row) =>
-        row.district.toLocaleLowerCase("id-ID").includes(normalizedQuery) ||
-        row.province.toLocaleLowerCase("id-ID").includes(normalizedQuery),
-    );
-    if (!district) {
-      setSearchMessage("Wilayah belum ditemukan di data cakupan.");
-      return;
-    }
-    openDistrict(query.trim());
-  }
-
-  function openDistrict(text: string) {
-    setQuery(text);
-    setCoverageSearch(text);
-    setProvinceFilter("Semua provinsi");
-    setCoverageMetric("4G");
-    setCoverageSort("low");
-    setPanel("coverage");
-    setSearchMessage("");
-    setSearchFocused(false);
-    searchRef.current?.blur();
+    setSearchMessage("Wilayah belum ditemukan. Coba nama wilayah pada daftar peta.");
   }
 
   function pickRegion(region: (typeof regions)[number]) {
@@ -328,7 +229,7 @@ export default function Dashboard() {
   }
 
   // Navigasi panah pada daftar saran pencarian (pola combobox).
-  const suggestionCount = suggestions.regionHits.length + suggestions.districtHits.length;
+  const suggestionCount = suggestions.length;
   function handleSearchKeys(event: React.KeyboardEvent<HTMLInputElement>) {
     if (!searchFocused || suggestionCount === 0) return;
     if (event.key === "ArrowDown") {
@@ -339,9 +240,7 @@ export default function Dashboard() {
       setActiveSuggestion((value) => (value <= 0 ? suggestionCount - 1 : value - 1));
     } else if (event.key === "Enter" && activeSuggestion >= 0) {
       event.preventDefault();
-      const regionCount = suggestions.regionHits.length;
-      if (activeSuggestion < regionCount) pickRegion(suggestions.regionHits[activeSuggestion]);
-      else openDistrict(suggestions.districtHits[activeSuggestion - regionCount].district);
+      pickRegion(suggestions[activeSuggestion]);
       setActiveSuggestion(-1);
     } else if (event.key === "Escape") {
       setSearchFocused(false);
@@ -384,6 +283,11 @@ export default function Dashboard() {
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="ookla-period-summary" aria-live="polite">
+              <span>Data yang ditampilkan</span>
+              <strong>{ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}</strong>
+              <small>{ooklaSummary ? `${formatNumber(ooklaSummary.tests)} tes · ${formatNumber(ooklaSummary.devices)} perangkat` : "Jumlah tes dimuat bersama data peta"}</small>
             </div>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
@@ -434,116 +338,15 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="map-control-section">
-            <div className="map-section-heading"><span>CAKUPAN RADIO</span></div>
-            <div className="map-source-note">
-              <Icon name="globe" size={17} />
-              <p>Data 2G–5G tersedia per kabupaten/kota, tetapi sumbernya tidak menyertakan batas peta untuk menggambar layer geografis.</p>
-            </div>
-            <button className="map-inline-action" onClick={() => setPanel("coverage")}>Lihat cakupan per wilayah <span>→</span></button>
-          </div>
         </div>
       );
     }
 
-    if (panel === "coverage") {
-      return (
-        <div className="map-panel-body">
-          <div className="coverage-panel-summary">
-            <div><strong>{formatNumber(coverageData.length)}</strong><span>kabupaten/kota</span></div>
-            <div><strong>{percentage(coverageAverages[coverageMetric])}</strong><span>rata-rata {coverageMetric}</span></div>
-          </div>
-          <p className="map-panel-caption">Rata-rata sederhana antarwilayah, bukan estimasi berbobot penduduk.</p>
-          <label className="panel-search">
-            <Icon name="search" size={15} />
-            <input
-              aria-label="Cari dalam data cakupan"
-              onChange={(event) => setCoverageSearch(event.target.value)}
-              placeholder="Cari kabupaten/kota..."
-              value={coverageSearch}
-            />
-          </label>
-          <div className="coverage-panel-filters">
-            <select aria-label="Filter provinsi" onChange={(event) => setProvinceFilter(event.target.value)} value={provinceFilter}>
-              <option>Semua provinsi</option>
-              {provinces.map((province) => <option key={province}>{province}</option>)}
-            </select>
-            <select aria-label="Pilih teknologi" onChange={(event) => setCoverageMetric(event.target.value as CoverageMetric)} value={coverageMetric}>
-              {coverageMetrics.map((metric) => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}
-            </select>
-            <button
-              aria-label={coverageSort === "low" ? "Urutkan tertinggi dulu" : "Urutkan terendah dulu"}
-              className="map-sort-button"
-              onClick={() => setCoverageSort((value) => value === "low" ? "high" : "low")}
-              title={coverageSort === "low" ? "Terendah dulu" : "Tertinggi dulu"}
-            >
-              {coverageSort === "low" ? "↑ Rendah" : "↓ Tinggi"}
-            </button>
-          </div>
-          <div className="coverage-ranked-list">
-            {filteredCoverage.slice(0, 40).map((row) => (
-              <article className="coverage-ranked-row" key={`${row.province}-${row.district}`}>
-                <span className={`coverage-rank-dot ${row[coverageMetric] < 0.25 ? "is-low" : ""}`} />
-                <div><strong>{row.district}</strong><small>{row.province}</small></div>
-                <strong className={row[coverageMetric] < 0.25 ? "is-low" : ""}>{percentage(row[coverageMetric])}</strong>
-                <span aria-hidden="true" className="coverage-row-bar"><b className={row[coverageMetric] < 0.25 ? "is-low" : ""} style={{ width: `${Math.max(0, Math.min(1, row[coverageMetric])) * 100}%` }} /></span>
-              </article>
-            ))}
-            {filteredCoverage.length === 0 && <p className="map-panel-empty">Tidak ada wilayah yang cocok.</p>}
-          </div>
-          <div className="map-panel-bottom">
-            <span>Menampilkan {Math.min(40, filteredCoverage.length)} dari {formatNumber(filteredCoverage.length)}</span>
-            <button onClick={() => downloadCsv(filteredCoverage)}><Icon name="download" size={14} /> Ekspor CSV</button>
-          </div>
-          <p className="map-panel-footnote">Periode data cakupan tidak tercantum pada lembar sumber. Ini adalah daftar, bukan layer batas wilayah.</p>
-        </div>
-      );
+    if (panel === "analysis") {
+      return <AnalysisPanel />;
     }
 
-    if (panel === "frequency") {
-      return (
-        <div className="map-panel-body">
-          <p className="map-panel-intro">Data izin pita frekuensi radio untuk mobile broadband, berdasarkan sumber tahun 2023.</p>
-          <div className="frequency-panel-list">
-            {frequencyData.map((item) => (
-              <article className="frequency-panel-row" key={item.band}>
-                <div className="frequency-panel-head"><strong>{item.band}</strong><span>{item.bandwidth}</span></div>
-                <p>{item.range}</p>
-                <small>{item.holders.join(" · ")}</small>
-              </article>
-            ))}
-          </div>
-          <p className="map-panel-footnote">Lebar pita tiap pemegang izin berbeda. Data alokasi ini tidak menunjukkan performa aktual operator.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="map-panel-body">
-        <div className="map-stat-lead">
-          <span className="map-stat-kicker">
-            PENGUKURAN {(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
-          </span>
-          <strong>{ooklaSummary ? (ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 }) : "—"}<small>Mbps</small></strong>
-          <span>kecepatan unduh rata-rata tertimbang tes</span>
-        </div>
-        <div className="map-stat-grid">
-          <div><span>Unggah</span><strong>{ooklaSummary ? `${(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—"}</strong></div>
-          <div><span>Latensi</span><strong>{ooklaSummary ? `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms` : "—"}</strong></div>
-          <div><span>Tes tercatat</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.tests) : "—"}</strong></div>
-          <div><span>Perangkat</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.devices) : "—"}</strong></div>
-          <div><span>Sel asli</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.records) : "—"}</strong></div>
-          <div><span>Sel peta</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.aggregatedCells) : "—"}</strong></div>
-        </div>
-        <div className="map-section-heading"><span>RATA-RATA CAKUPAN · {coverageData.length} WILAYAH</span></div>
-        <div className="map-coverage-bars">
-          {coverageMetrics.map((metric) => (
-            <div key={metric}><span>{metric}</span><i><b style={{ width: `${coverageAverages[metric] * 100}%` }} /></i><strong>{percentage(coverageAverages[metric])}</strong></div>
-          ))}
-        </div>
-        <p className="map-panel-footnote">Sumber data berasal dari periode dan metode berbeda; jangan gunakan rata-rata ini sebagai perbandingan antaroperator.</p>
-      </div>
-    );
+    return null;
   }
 
   const activePanelItem = panelItems.find((item) => item.value === panel);
@@ -565,8 +368,8 @@ export default function Dashboard() {
       />
 
       <header className="map-topbar">
-        <h1 className="sr-only">SinyalNusa: eksplorasi kualitas dan cakupan jaringan Indonesia</h1>
-        <Link aria-label="SinyalNusa, peta kualitas dan cakupan jaringan" className="map-brand-plate" href="/">
+        <h1 className="sr-only">SinyalNusa: eksplorasi kualitas jaringan Indonesia</h1>
+        <Link aria-label="SinyalNusa, peta kualitas jaringan" className="map-brand-plate" href="/">
           <Image
             alt=""
             className="map-brand-logo"
@@ -600,20 +403,13 @@ export default function Dashboard() {
             </button>
           )}
           <kbd>{shortcutLabel}</kbd>
-          {searchFocused && (suggestions.regionHits.length > 0 || suggestions.districtHits.length > 0) && (
+          {searchFocused && suggestions.length > 0 && (
             <div className="map-search-results" id="search-listbox" onMouseDown={(event) => event.preventDefault()} role="listbox" aria-label="Saran pencarian">
-              {suggestions.regionHits.length > 0 && <div className="map-search-heading" role="presentation">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>}
-              {suggestions.regionHits.map((region, i) => (
+              <div className="map-search-heading" role="presentation">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>
+              {suggestions.map((region, i) => (
                 <button aria-selected={activeSuggestion === i} className={`map-search-item ${activeSuggestion === i ? "is-active" : ""}`} id={`search-option-${i}`} key={region.name} onClick={() => pickRegion(region)} role="option" tabIndex={-1} type="button">
                   <span className="map-search-item-icon"><Icon name="locate" size={15} /></span>
                   <span><strong>{region.label}</strong><small>Pindahkan peta ke wilayah ini</small></span>
-                </button>
-              ))}
-              {suggestions.districtHits.length > 0 && <div className="map-search-heading" role="presentation">KABUPATEN/KOTA · DATA CAKUPAN</div>}
-              {suggestions.districtHits.map((row, j) => (
-                <button aria-selected={activeSuggestion === suggestions.regionHits.length + j} className={`map-search-item ${activeSuggestion === suggestions.regionHits.length + j ? "is-active" : ""}`} id={`search-option-${suggestions.regionHits.length + j}`} key={`${row.province}-${row.district}`} onClick={() => openDistrict(row.district)} role="option" tabIndex={-1} type="button">
-                  <span className="map-search-item-icon"><Icon name="globe" size={15} /></span>
-                  <span><strong>{row.district}</strong><small>{row.province} · 4G {percentage(row["4G"])}</small></span>
                 </button>
               ))}
             </div>
@@ -714,11 +510,6 @@ export default function Dashboard() {
             <span>{item.short}</span>
           </button>
         ))}
-        <span className="map-rail-separator" />
-        <button aria-label="Unduh data cakupan CSV" onClick={() => downloadCsv(filteredCoverage)} title="Ekspor cakupan CSV">
-          <Icon name="download" size={19} />
-          <span>CSV</span>
-        </button>
       </nav>
 
       {panel && (

@@ -1,9 +1,8 @@
 import json
 import re
-import zipfile
+import sys
 from datetime import date
 from pathlib import Path
-from xml.etree import ElementTree
 
 import duckdb
 
@@ -12,63 +11,22 @@ ROOT = Path(__file__).resolve().parents[1]
 OOKLA_DATA_DIR = ROOT / "lib" / "data_ookla"
 OOKLA_OUTPUT_DIR = ROOT / "public" / "data" / "ookla"
 OOKLA_PERIODS_PATH = ROOT / "lib" / "ookla-periods.json"
-COVERAGE_PATH = ROOT / "lib" / "data-coverage-jaringan-telekomunikasi.xlsx"
-FREQUENCY_PATH = ROOT / "lib" / "data-frekuensi-mobile-broadband-per-2023.xlsx"
-COVERAGE_DATA_PATH = ROOT / "lib" / "coverage-data.json"
-FREQUENCY_DATA_PATH = ROOT / "lib" / "frequency-data.json"
+OOKLA_ANALYSIS_PATH = ROOT / "lib" / "ookla-analysis.json"
 OOKLA_BOUNDS = {"west": 90, "south": -15, "east": 145, "north": 15}
 OOKLA_MODES = ("mobile", "fixed")
+OOKLA_ANALYSIS_REGIONS = [
+    {"value": "indonesia-sekitarnya", "label": "Indonesia & sekitar", "bounds": OOKLA_BOUNDS},
+    {"value": "sumatra", "label": "Sumatra (perkiraan)", "bounds": {"west": 94, "south": -6.5, "east": 106.5, "north": 6}},
+    {"value": "jawa", "label": "Jawa (perkiraan)", "bounds": {"west": 105, "south": -9, "east": 115, "north": -5}},
+    {"value": "bali-nusa-tenggara", "label": "Bali & Nusa Tenggara (perkiraan)", "bounds": {"west": 114, "south": -12, "east": 128, "north": -7}},
+    {"value": "kalimantan", "label": "Kalimantan (perkiraan)", "bounds": {"west": 108, "south": -5, "east": 119, "north": 5}},
+    {"value": "sulawesi", "label": "Sulawesi (perkiraan)", "bounds": {"west": 118, "south": -7, "east": 126, "north": 3}},
+    {"value": "maluku", "label": "Maluku (perkiraan)", "bounds": {"west": 124, "south": -9, "east": 135, "north": 3}},
+    {"value": "papua", "label": "Papua (perkiraan)", "bounds": {"west": 130, "south": -11, "east": 141, "north": 1}},
+]
 OOKLA_FILE_PATTERN = re.compile(
     r"(?P<period>\d{4}-\d{2}-\d{2})_performance_(?P<mode>mobile|fixed)_tiles\.parquet"
 )
-
-NS = {
-    "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-    "relationships": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    "package": "http://schemas.openxmlformats.org/package/2006/relationships",
-}
-
-
-def read_workbook_rows(path: Path) -> list[list[str]]:
-    with zipfile.ZipFile(path) as workbook:
-        workbook_xml = ElementTree.fromstring(workbook.read("xl/workbook.xml"))
-        relationships_xml = ElementTree.fromstring(
-            workbook.read("xl/_rels/workbook.xml.rels")
-        )
-        relationships = {
-            relationship.attrib["Id"]: relationship.attrib["Target"]
-            for relationship in relationships_xml
-        }
-        shared_strings = []
-        if "xl/sharedStrings.xml" in workbook.namelist():
-            strings_xml = ElementTree.fromstring(workbook.read("xl/sharedStrings.xml"))
-            shared_strings = [
-                "".join(text.text or "" for text in item.findall(".//main:t", NS))
-                for item in strings_xml.findall("main:si", NS)
-            ]
-
-        sheet = workbook_xml.find("main:sheets/main:sheet", NS)
-        if sheet is None:
-            raise ValueError(f"No worksheet found in {path.name}")
-        target = relationships[sheet.attrib[f"{{{NS['relationships']}}}id"]].lstrip("/")
-        sheet_path = target if target.startswith("xl/") else f"xl/{target}"
-        sheet_xml = ElementTree.fromstring(workbook.read(sheet_path))
-        rows = []
-        for row in sheet_xml.findall(".//main:sheetData/main:row", NS):
-            values = []
-            for cell in row.findall("main:c", NS):
-                value = cell.find("main:v", NS)
-                text = value.text if value is not None else ""
-                if cell.attrib.get("t") == "s" and text:
-                    text = shared_strings[int(text)]
-                elif cell.attrib.get("t") == "inlineStr":
-                    text = "".join(
-                        node.text or "" for node in cell.findall(".//main:t", NS)
-                    )
-                values.append(text)
-            rows.append(values)
-        return rows
-
 
 def write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,40 +34,6 @@ def write_json(path: Path, value: object) -> None:
         json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
-
-
-def build_coverage_data() -> None:
-    rows = read_workbook_rows(COVERAGE_PATH)
-    coverage = [
-        {
-            "province": row[0],
-            "district": row[1],
-            "2G": min(1, float(row[2])),
-            "3G": min(1, float(row[3])),
-            "4G": min(1, float(row[4])),
-            "5G": min(1, float(row[5])),
-        }
-        for row in rows[1:]
-        if len(row) >= 6 and row[0] and row[1]
-    ]
-    write_json(COVERAGE_DATA_PATH, coverage)
-
-
-def build_frequency_data() -> None:
-    rows = read_workbook_rows(FREQUENCY_PATH)
-    frequencies = []
-    for row in rows[2:]:
-        if len(row) < 5 or not row[1]:
-            continue
-        frequencies.append(
-            {
-                "band": row[1],
-                "range": row[2].replace("\n", " "),
-                "bandwidth": row[3],
-                "holders": [holder.strip() for holder in row[4].split(",") if holder.strip()],
-            }
-        )
-    write_json(FREQUENCY_DATA_PATH, frequencies)
 
 
 def build_ookla_data() -> None:
@@ -240,7 +164,70 @@ def build_ookla_data() -> None:
     )
 
 
+def build_ookla_analysis() -> None:
+    periods_index = json.loads(OOKLA_PERIODS_PATH.read_text(encoding="utf-8"))
+    period_values = {item["value"] for item in periods_index["periods"]}
+    entries = []
+    for path in sorted(OOKLA_OUTPUT_DIR.glob("*.json")):
+        dataset = json.loads(path.read_text(encoding="utf-8"))
+        period = dataset["period"]
+        if period not in period_values:
+            continue
+        year, month, _ = map(int, period.split("-"))
+        quarter = (month - 1) // 3 + 1
+        for region in OOKLA_ANALYSIS_REGIONS:
+            west = region["bounds"]["west"]
+            south = region["bounds"]["south"]
+            east = region["bounds"]["east"]
+            north = region["bounds"]["north"]
+            total_tests = total_devices = 0
+            weighted_download = weighted_upload = weighted_latency = 0
+            cell_count = 0
+            for cell in dataset["cells"]:
+                longitude, latitude, download, upload, latency, tests, devices = cell
+                if not (west <= longitude <= east and south <= latitude <= north):
+                    continue
+                total_tests += tests
+                total_devices += devices
+                weighted_download += download * tests
+                weighted_upload += upload * tests
+                weighted_latency += latency * tests
+                cell_count += 1
+            if not total_tests:
+                continue
+            entries.append(
+                {
+                    "period": period,
+                    "year": year,
+                    "quarter": quarter,
+                    "periodLabel": f"Q{quarter} {year}",
+                    "networkType": dataset["networkType"],
+                    "region": region["value"],
+                    "cells": cell_count,
+                    "tests": total_tests,
+                    "devices": total_devices,
+                    "avgDownloadKbps": weighted_download / total_tests,
+                    "avgUploadKbps": weighted_upload / total_tests,
+                    "avgLatencyMs": weighted_latency / total_tests,
+                }
+            )
+    if not entries:
+        raise ValueError(f"No periodized Ookla data found in {OOKLA_OUTPUT_DIR}")
+    write_json(
+        OOKLA_ANALYSIS_PATH,
+        {
+            "regions": OOKLA_ANALYSIS_REGIONS,
+            "periods": periods_index["periods"],
+            "latestPeriod": periods_index["latestPeriod"],
+            "note": "Analisis wilayah memakai kotak koordinat perkiraan dan titik tengah sel quadkey level 12, bukan batas administrasi.",
+            "entries": entries,
+        },
+    )
+
+
 if __name__ == "__main__":
-    build_coverage_data()
-    build_frequency_data()
-    build_ookla_data()
+    if "--analysis-only" in sys.argv:
+        build_ookla_analysis()
+    else:
+        build_ookla_data()
+        build_ookla_analysis()

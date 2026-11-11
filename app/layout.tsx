@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SinyalNusa | Eksplorasi Kualitas dan Cakupan Jaringan",
+  title: "SinyalNusa | Tren Performa Jaringan Ookla",
   description:
-    "Peta interaktif performa jaringan seluler, cakupan kabupaten/kota, dan frekuensi Indonesia.",
+    "Peta dan analisis historis performa mobile dan fixed broadband Ookla di Indonesia dan sekitarnya.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
