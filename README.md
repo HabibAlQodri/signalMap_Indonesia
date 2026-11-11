@@ -27,7 +27,7 @@ Jangan gunakan `next start` untuk deployment Cloudflare Pages static.
 
 - `lib/data_ookla`: sumber Parquet Ookla mobile dan fixed per kuartal. Skrip memilih lima tahun mundur dari periode terbaru yang tersedia; berkas saat ini mencakup 2021-10 sampai 2026-07 (20 kuartal, karena periode 2021-07 tidak tersedia). Data dibatasi ke area sekitar Indonesia (bujur 90–145°, lintang -15–15°), lalu diagregasi ke quadkey level 12 dengan bobot jumlah tes. Peta memuat hanya satu jenis jaringan dan satu periode yang dipilih.
 
-Peta berfokus pada tren performa Ookla mobile/fixed dalam grafik dan tabel tahunan atau kuartalan, dengan jumlah tes per periode, ekspor CSV, pilihan metrik, dan filter wilayah perkiraan berbasis kotak koordinat (bukan batas administrasi). Periode yang ditampilkan mengikuti arsip lokal Ookla yang tersedia; ini bukan pengukuran langsung.
+Peta berfokus pada tren performa Ookla mobile/fixed dalam grafik garis atau volume tes dan tabel tahunan/kuartalan. Statistik tren dan ringkasan dapat diekspor sebagai CSV, PNG, JPG, atau PDF; tabel analisis juga dapat diekspor dalam keempat format tersebut. Sel agregat pada peta dapat diekspor sebagai CSV. Filter wilayah analisis memakai kotak koordinat perkiraan (bukan batas administrasi); periode mengikuti arsip lokal Ookla, bukan pengukuran langsung.
 
 ## Membangun ulang data turunan
 

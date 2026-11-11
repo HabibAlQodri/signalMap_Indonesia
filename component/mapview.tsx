@@ -44,6 +44,7 @@ type MapViewProps = {
   onToggleFullscreen?: () => void;
   onInitialLoadComplete?: () => void;
   onDataLoaded: (data: OoklaMetadata | null) => void;
+  onMapDataLoaded: (data: OoklaData | null) => void;
 };
 
 function metricDetailsFor(data: OoklaData | null): Record<
@@ -244,6 +245,7 @@ export default function MapView({
   onToggleFullscreen,
   onInitialLoadComplete,
   onDataLoaded,
+  onMapDataLoaded,
 }: MapViewProps) {
   const datasetKey = `${networkType}-${period}`;
   const [loadedDataset, setLoadedDataset] = useState<{
@@ -337,9 +339,12 @@ export default function MapView({
         setSelectedCell(null);
         setLoadedDataset({ key: datasetKey, data: result, error: "" });
         onDataLoaded(result);
+        onMapDataLoaded(result);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        onDataLoaded(null);
+        onMapDataLoaded(null);
         setLoadedDataset({
           key: datasetKey,
           data: null,
@@ -347,7 +352,7 @@ export default function MapView({
         });
       });
     return () => controller.abort();
-  }, [datasetKey, networkType, period, onDataLoaded]);
+  }, [datasetKey, networkType, period, onDataLoaded, onMapDataLoaded]);
 
   useEffect(() => {
     const dataFinished = data !== null || dataError !== "";

@@ -609,14 +609,16 @@ body { background: #dce8e7; }
 .map-stat-grid > div:nth-child(even) { padding-left: 12px; }
 .map-stat-grid span { color: #89958f; font-size: 8px; }
 .map-stat-grid strong { color: #4b5c55; font-size: 10px; font-weight: 620; }
-.analysis-period-summary { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 8px; border: 1px solid #e3eee7; border-radius: 8px; background: #f6faf7; padding: 10px; }
+.analysis-period-summary { display: grid; gap: 8px; border: 1px solid #e3eee7; border-radius: 8px; background: #f6faf7; padding: 10px; }
 .analysis-period-main, .analysis-period-tests { display: grid; align-content: start; gap: 4px; }
+.analysis-period-main { grid-template-columns: 1fr auto; align-items: center; }
 .analysis-period-main > span, .analysis-period-tests > span { color: #718179; font-size: 7px; font-weight: 700; letter-spacing: .45px; }
-.analysis-period-main > strong { color: #34745d; font-size: 16px; font-variant-numeric: tabular-nums; }
-.analysis-period-tests p { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 5px; margin: 0; color: #718179; font-size: 8px; }
-.analysis-period-tests p strong { color: #34745d; font-size: 11px; font-variant-numeric: tabular-nums; }
-.analysis-period-tests p i { width: 1px; height: 11px; margin: 0 3px; background: #d7e3da; }
-.analysis-period-summary > small { grid-column: 1 / -1; border-top: 1px solid #e2ece4; padding-top: 6px; color: #718179; font-size: 7px; line-height: 1.45; }
+.analysis-period-main > strong { color: #34745d; font-size: 14px; font-variant-numeric: tabular-nums; }
+.analysis-test-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.analysis-test-counts > div { display: grid; min-width: 0; gap: 3px; border: 1px solid #e6eee8; border-radius: 6px; background: #fff; padding: 7px 8px; }
+.analysis-test-counts > div > span { color: #718179; font-size: 8px; }
+.analysis-test-counts > div > strong { overflow: hidden; color: #34745d; font-size: 12px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-period-summary > small { border-top: 1px solid #e2ece4; padding-top: 6px; color: #718179; font-size: 7px; line-height: 1.45; }
 .ookla-period-summary { display: grid; gap: 3px; margin: 0 0 9px; border: 1px solid #e6ece7; border-radius: 7px; background: #f8faf8; padding: 8px 9px; }
 .ookla-period-summary span { color: #77877f; font-size: 8px; }
 .ookla-period-summary strong { color: #34745d; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -635,6 +637,9 @@ body { background: #dce8e7; }
 .analysis-chart-wrap { overflow: hidden; border: 1px solid #e9eee9; border-radius: 8px; background: #fff; padding: 9px 6px 6px; }
 .analysis-chart-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 7px; color: #66776e; font-size: 8px; }
 .analysis-chart-heading strong { color: #40564b; font-size: 9px; }
+.analysis-visual-toggle { display: flex; width: fit-content; gap: 3px; margin: 7px 7px 0; border: 1px solid #e7ece8; border-radius: 6px; background: #f7f9f7; padding: 2px; }
+.analysis-visual-toggle button { min-height: 23px; border: 0; border-radius: 4px; background: transparent; padding: 0 7px; color: #718078; cursor: pointer; font-size: 7px; }
+.analysis-visual-toggle button.is-active { background: #fff; color: #267657; box-shadow: 0 1px 3px rgb(34 53 60 / 11%); font-weight: 650; }
 .analysis-chart { display: block; width: 100%; height: auto; overflow: visible; }
 .analysis-grid-line { stroke: #edf1ed; stroke-width: 1; }
 .analysis-axis-label, .analysis-x-label { fill: #89958e; font-family: inherit; font-size: 8px; }
@@ -644,12 +649,20 @@ body { background: #dce8e7; }
 .analysis-point { stroke: #fff; stroke-width: 1.5; }
 .analysis-point.is-mobile { fill: #279276; }
 .analysis-point.is-fixed { fill: #6478c5; }
+.analysis-volume-bar.is-mobile { fill: #279276; }
+.analysis-volume-bar.is-fixed { fill: #6478c5; }
 .analysis-legend { display: flex; justify-content: center; gap: 15px; color: #75827b; font-size: 8px; }
 .analysis-legend span { display: flex; align-items: center; gap: 5px; }
 .analysis-legend i { width: 8px; height: 8px; border-radius: 50%; background: #279276; }
 .analysis-legend i.is-fixed { background: #6478c5; }
 .analysis-table-heading { margin: 13px 0 7px; }
+.analysis-statistics-export { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; border: 1px solid #e8ede8; border-radius: 7px; background: #fbfcfa; padding: 5px 8px; }
+.analysis-statistics-export > span { color: #7c8982; font-size: 8px; font-weight: 650; }
+.analysis-statistics-export > div { display: flex; align-items: center; gap: 9px; }
 .map-export-button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 2px; color: #36836a; cursor: pointer; font-size: 8px; }
+.map-data-export { width: 100%; justify-content: center; gap: 6px; margin-top: 6px; border: 1px solid #dfeae2; border-radius: 6px; background: #f7faf7; padding: 7px; font-size: 8px; }
+.map-data-export:hover:not(:disabled) { border-color: #b7d2c4; background: #f0f7f2; }
+.map-data-export:disabled { cursor: wait; opacity: .6; }
 .analysis-table-wrap { max-height: 225px; overflow: auto; border: 1px solid #e9eee9; border-radius: 7px; }
 .analysis-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .analysis-table th, .analysis-table td { border-bottom: 1px solid #eff2ef; padding: 7px 6px; color: #68776f; font-size: 7px; }
@@ -752,10 +765,10 @@ body { background: #dce8e7; }
 .map-rail-separator { width: 30px; }
 
 /* ---------- Panel samping (kini di kiri, menempel rail) ---------- */
-.map-side-panel { top: 72px; right: auto; bottom: 34px; left: 88px; width: 372px; max-height: none; border-radius: 14px; }
+.map-side-panel { top: 72px; right: auto; bottom: 34px; left: 88px; width: min(580px, calc(100vw - 120px)); max-height: none; border-radius: 14px; }
 .map-panel-header { min-height: 74px; padding: 12px 16px; }
 .map-panel-kicker { font-size: 10px; }
-.map-panel-header h1 { font-size: 18px; }
+.map-panel-header h1, .map-panel-header h2 { font-size: 18px; }
 .map-panel-body { padding: 16px; }
 .map-section-heading { font-size: 10px; }
 .map-source-chip { padding: 3px 8px; font-size: 10px; }
@@ -785,14 +798,16 @@ body { background: #dce8e7; }
 .coverage-panel-summary span { font-size: 10.5px; }
 .analysis-filters label, .analysis-period-summary > small { font-size: 10px; }
 .analysis-period-main > span, .analysis-period-tests > span { font-size: 8px; }
-.analysis-period-main > strong { font-size: 19px; }
-.analysis-period-tests p { font-size: 9px; }
-.analysis-period-tests p strong { font-size: 12px; }
+.analysis-period-main > strong { font-size: 16px; }
+.analysis-test-counts > div { padding: 8px 9px; }
+.analysis-test-counts > div > span { font-size: 9px; }
+.analysis-test-counts > div > strong { font-size: 13px; }
 .ookla-period-summary span, .ookla-period-summary small { font-size: 9px; }
 .ookla-period-summary strong { font-size: 15px; }
 .analysis-filters select { height: 34px; font-size: 10px; }
 .analysis-period-toggle button, .analysis-kpi > span, .analysis-chart-heading { font-size: 10px; }
 .analysis-period-toggle button { min-height: 31px; }
+.analysis-visual-toggle button { min-height: 27px; padding: 0 9px; font-size: 9px; }
 .analysis-kpi > strong { font-size: 19px; }
 .analysis-kpi > small { font-size: 9px; }
 .analysis-chart-heading strong { font-size: 11px; }
@@ -853,7 +868,7 @@ body { background: #dce8e7; }
 
 /* ---------- Kartu performa & status ---------- */
 .map-performance-card { bottom: 58px; left: 12px; width: 330px; padding: 13px 15px 12px; }
-.map-workspace:has(.map-side-panel) .map-performance-card { left: 472px; }
+.map-workspace:has(.map-side-panel) .map-performance-card { left: calc(100px + min(580px, calc(100vw - 120px))); }
 .map-performance-top { font-size: 10px; }
 .map-performance-value { margin-top: 8px; font-size: 30px; }
 .map-performance-bottom { margin-top: 8px; font-size: 11px; }
@@ -866,6 +881,46 @@ body { background: #dce8e7; }
 .maplibre-container .maplibregl-ctrl-scale { border-color: #50635d; background: rgb(255 255 255 / 84%); color: #3f524c; font-size: 10px; }
 .maplibre-container .maplibregl-ctrl-attrib { font-size: 10px; }
 .map-data-error, .map-location-error { font-size: 11px; }
+
+@media (min-width: 701px) {
+  .map-panel-header { min-height: 86px; padding: 15px 22px; }
+  .map-panel-header h1, .map-panel-header h2 { font-size: 23px; }
+  .map-panel-kicker { font-size: 12px; }
+  .map-panel-body { padding: 22px; }
+  .analysis-panel { padding: 22px; }
+  .analysis-period-summary { gap: 13px; padding: 16px; }
+  .analysis-period-main > span, .analysis-period-tests > span { font-size: 11px; }
+  .analysis-period-main > strong { font-size: 22px; }
+  .analysis-test-counts > div { gap: 6px; padding: 12px 14px; }
+  .analysis-test-counts > div > span { font-size: 12px; }
+  .analysis-test-counts > div > strong { font-size: 18px; }
+  .analysis-period-summary > small { font-size: 11px; }
+  .analysis-filters { gap: 12px; margin: 16px 0 9px; }
+  .analysis-filters label { font-size: 12px; }
+  .analysis-filters select { height: 42px; padding: 0 11px; font-size: 13px; }
+  .analysis-period-toggle { margin: 14px 0; }
+  .analysis-period-toggle button { min-height: 40px; font-size: 12px; }
+  .analysis-chart-wrap { padding: 17px 16px 13px; }
+  .analysis-chart-heading, .analysis-chart-heading strong { font-size: 14px; }
+  .analysis-visual-toggle { margin-top: 10px; }
+  .analysis-visual-toggle button { min-height: 34px; padding: 0 13px; font-size: 12px; }
+  .analysis-axis-label, .analysis-x-label { font-size: 11px; }
+  .analysis-legend { font-size: 12px; }
+  .analysis-kpi { margin: 16px 0; padding: 16px; }
+  .analysis-kpi > span { font-size: 12px; }
+  .analysis-kpi > strong { font-size: 26px; }
+  .analysis-kpi > small, .map-panel-caption { font-size: 12px; }
+  .analysis-statistics-export { margin: 12px 0; padding: 7px 10px; }
+  .analysis-statistics-export > span { font-size: 11px; }
+  .analysis-statistics-export > div { gap: 12px; }
+  .analysis-table-heading { margin: 22px 0 12px; }
+  .analysis-export-actions .map-export-button { min-height: 36px; padding: 0 12px; font-size: 12px; }
+  .analysis-table-wrap { max-height: min(40vh, 460px); }
+  .analysis-table th, .analysis-table td { padding: 14px 13px; font-size: 13px; }
+  .analysis-table td small { font-size: 11px; }
+  .analysis-table tbody tr { height: 62px; }
+  .map-panel-footnote { font-size: 11px; }
+}
 
 /* ---------- Tooltip hover & popup detail sel ---------- */
 .map-hover-tip { position: absolute; z-index: 6; top: 0; left: 0; display: none; border-left: 4px solid var(--tip-color, #3a9c79); border-radius: 6px; background: #25363a; padding: 5px 9px; color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 12px rgb(20 32 35 / 28%); }
@@ -895,8 +950,8 @@ body { background: #dce8e7; }
   .map-topbar { grid-template-columns: auto minmax(200px, 1fr) auto; }
   .map-quick-metrics button { min-width: 84px; padding: 0 8px; }
   .map-region-select { min-width: 100px; }
-  .map-side-panel { width: 340px; }
-  .map-workspace:has(.map-side-panel) .map-performance-card { left: 440px; width: 300px; }
+  .map-side-panel { width: min(480px, calc(100vw - 110px)); }
+  .map-workspace:has(.map-side-panel) .map-performance-card { left: calc(100px + min(480px, calc(100vw - 110px))); width: 300px; }
 }
 @media (max-width: 900px) {
   .map-workspace:has(.map-side-panel) .map-legend.map-floating-card { display: none; }
@@ -920,7 +975,7 @@ body { background: #dce8e7; }
   .map-rail-separator { width: 1px; height: 26px; margin: 0 2px; }
   .map-side-panel { top: auto; right: 8px; bottom: 70px; left: 8px; width: auto; max-height: min(56vh, 480px); border-radius: 14px; }
   .map-panel-header { min-height: 58px; padding: 8px 13px; }
-  .map-panel-header h1 { font-size: 15px; }
+  .map-panel-header h1, .map-panel-header h2 { font-size: 15px; }
   .map-panel-body { padding: 13px; }
   .map-control-stack { top: 128px; right: 8px; bottom: auto; }
   .map-control-group button { width: 40px; height: 40px; }

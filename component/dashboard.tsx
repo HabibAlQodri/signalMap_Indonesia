@@ -7,6 +7,7 @@ import { formatNumber, regions } from "../lib/network-data";
 import ooklaPeriods from "../lib/ookla-periods.json";
 import {
   type OoklaMetadata,
+  type OoklaData,
   type OoklaNetworkType,
   formatOoklaNetworkType,
   formatOoklaPeriod,
@@ -38,6 +39,32 @@ function metricReading(metric: MapMetric, data: OoklaMetadata | null) {
   return `${data.avgLatencyMs.toLocaleString("id-ID")} ms`;
 }
 
+function downloadMapCsv(data: OoklaData) {
+  const rows = [
+    ["periode", "jaringan", "longitude", "latitude", "unduh_mbps", "unggah_mbps", "latensi_ms", "tes", "perangkat", "jumlah_sel_gabungan"],
+    ...data.cells.map((cell) => [
+      data.periodLabel,
+      data.networkLabel,
+      cell[0].toFixed(6),
+      cell[1].toFixed(6),
+      (cell[2] / 1000).toFixed(2),
+      (cell[3] / 1000).toFixed(2),
+      cell[4].toFixed(2),
+      cell[5],
+      cell[6],
+      cell[7] ?? 1,
+    ]),
+  ].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob(["\uFEFF", rows], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ookla-peta-${data.networkType}-${data.period}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function Dashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [panel, setPanel] = useState<PanelName | null>("analysis");
@@ -45,9 +72,14 @@ export default function Dashboard() {
   const [ooklaNetworkType, setOoklaNetworkType] = useState<OoklaNetworkType>("mobile");
   const [ooklaPeriod, setOoklaPeriod] = useState(ooklaPeriods.latestPeriod);
   const [loadedOoklaSummary, setLoadedOoklaSummary] = useState<OoklaMetadata | null>(null);
+  const [loadedOoklaMapData, setLoadedOoklaMapData] = useState<OoklaData | null>(null);
   const ooklaSummary =
     loadedOoklaSummary?.networkType === ooklaNetworkType && loadedOoklaSummary.period === ooklaPeriod
       ? loadedOoklaSummary
+      : null;
+  const ooklaMapData =
+    loadedOoklaMapData?.networkType === ooklaNetworkType && loadedOoklaMapData.period === ooklaPeriod
+      ? loadedOoklaMapData
       : null;
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
@@ -77,6 +109,7 @@ export default function Dashboard() {
   const searchRef = useRef<HTMLInputElement>(null);
   const finishInitialLoading = useCallback(() => setInitialLoading(false), []);
   const updateOoklaSummary = useCallback((data: OoklaMetadata | null) => setLoadedOoklaSummary(data), []);
+  const updateOoklaMapData = useCallback((data: OoklaData | null) => setLoadedOoklaMapData(data), []);
 
   const suggestions = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("id-ID");
@@ -289,6 +322,16 @@ export default function Dashboard() {
               <strong>{ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}</strong>
               <small>{ooklaSummary ? `${formatNumber(ooklaSummary.tests)} tes · ${formatNumber(ooklaSummary.devices)} perangkat` : "Jumlah tes dimuat bersama data peta"}</small>
             </div>
+            <button
+              className="map-export-button map-data-export"
+              disabled={!ooklaMapData}
+              onClick={() => ooklaMapData && downloadMapCsv(ooklaMapData)}
+              type="button"
+            >
+              <Icon name="download" size={14} />
+              Ekspor {formatNumber(ooklaMapData?.aggregatedCells ?? 0)} sel peta CSV
+            </button>
+            <p className="map-panel-footnote">Ekspor berisi sel quadkey agregat untuk jaringan dan periode terpilih, bukan tes individual.</p>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
               <span><strong>Hasil pengukuran</strong><small>{overlayOn ? `Overlay ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} aktif` : "Overlay disembunyikan"}</small></span>
@@ -365,6 +408,7 @@ export default function Dashboard() {
         onToggleFullscreen={toggleFullscreen}
         onInitialLoadComplete={finishInitialLoading}
         onDataLoaded={updateOoklaSummary}
+        onMapDataLoaded={updateOoklaMapData}
       />
 
       <header className="map-topbar">
