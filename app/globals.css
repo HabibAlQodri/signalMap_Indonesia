@@ -498,6 +498,9 @@ body { background: #dce8e7; }
 .switch-track.is-on { background: #3a9d7c; }
 .switch-track.is-on::after { transform: translateX(13px); }
 .map-option-label { margin: 15px 0 7px; color: #7e8d87; font-size: 9px; font-weight: 600; }
+.ookla-data-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px; }
+.ookla-data-selects label { display: grid; min-width: 0; gap: 4px; color: #7e8d87; font-size: 8px; font-weight: 600; }
+.ookla-data-selects select { width: 100%; min-width: 0; height: 31px; border: 1px solid #e7ece8; border-radius: 6px; background: #fff; padding: 0 7px; color: #586a63; cursor: pointer; font-size: 8px; }
 .metric-choice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .metric-choice-grid button { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 6px; border: 1px solid #e7ece8; border-radius: 7px; background: #fff; color: #65756f; cursor: pointer; font-size: 9px; }
 .metric-choice-grid button > span:first-child { color: #81958c; font-size: 13px; }
@@ -713,6 +716,8 @@ body { background: #dce8e7; }
 .switch-track::after { width: 15px; height: 15px; }
 .switch-track.is-on::after { transform: translateX(15px); }
 .map-option-label { margin: 16px 0 8px; font-size: 11px; }
+.ookla-data-selects label { font-size: 10px; }
+.ookla-data-selects select { height: 34px; font-size: 10px; }
 .metric-choice-grid { gap: 8px; }
 .metric-choice-grid button { min-height: 58px; font-size: 11px; }
 .metric-choice-grid button > span:first-child { font-size: 15px; }

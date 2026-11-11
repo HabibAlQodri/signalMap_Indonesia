@@ -5,8 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import coverageData from "../lib/coverage-data.json";
 import frequencyData from "../lib/frequency-data.json";
-import ooklaSummary from "../lib/ookla-summary.json";
 import { formatNumber, regions } from "../lib/network-data";
+import ooklaPeriods from "../lib/ookla-periods.json";
+import {
+  type OoklaMetadata,
+  type OoklaNetworkType,
+  formatOoklaNetworkType,
+  formatOoklaPeriod,
+} from "../lib/ookla-data";
 import Icon, { type IconName } from "./icon";
 import MapView, { type Basemap, type MapMetric } from "./mapview";
 
@@ -21,25 +27,10 @@ const metricLabels: Record<CoverageMetric, string> = {
   "4G": "Cakupan 4G",
   "5G": "Cakupan 5G",
 };
-const metrics: { value: MapMetric; label: string; short: string; reading: string }[] = [
-  {
-    value: "download",
-    label: "Kecepatan unduh",
-    short: "Unduh",
-    reading: `${(ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
-  },
-  {
-    value: "upload",
-    label: "Kecepatan unggah",
-    short: "Unggah",
-    reading: `${(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
-  },
-  {
-    value: "latency",
-    label: "Latensi",
-    short: "Latensi",
-    reading: `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms`,
-  },
+const metrics: { value: MapMetric; label: string; short: string }[] = [
+  { value: "download", label: "Kecepatan unduh", short: "Unduh" },
+  { value: "upload", label: "Kecepatan unggah", short: "Unggah" },
+  { value: "latency", label: "Latensi", short: "Latensi" },
 ];
 const panelItems: { value: PanelName; label: string; short: string; icon: IconName }[] = [
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
@@ -50,6 +41,17 @@ const panelItems: { value: PanelName; label: string; short: string; icon: IconNa
 
 function percentage(value: number) {
   return `${(value * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
+}
+
+function metricReading(metric: MapMetric, data: OoklaMetadata | null) {
+  if (!data) return "—";
+  if (metric === "download") {
+    return `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
+  }
+  if (metric === "upload") {
+    return `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
+  }
+  return `${data.avgLatencyMs.toLocaleString("id-ID")} ms`;
 }
 
 function downloadCsv(rows: CoverageRow[]) {
@@ -77,6 +79,13 @@ export default function Dashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
+  const [ooklaNetworkType, setOoklaNetworkType] = useState<OoklaNetworkType>("mobile");
+  const [ooklaPeriod, setOoklaPeriod] = useState(ooklaPeriods.latestPeriod);
+  const [loadedOoklaSummary, setLoadedOoklaSummary] = useState<OoklaMetadata | null>(null);
+  const ooklaSummary =
+    loadedOoklaSummary?.networkType === ooklaNetworkType && loadedOoklaSummary.period === ooklaPeriod
+      ? loadedOoklaSummary
+      : null;
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
   const [view3d, setView3d] = useState(false);
@@ -108,6 +117,7 @@ export default function Dashboard() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const finishInitialLoading = useCallback(() => setInitialLoading(false), []);
+  const updateOoklaSummary = useCallback((data: OoklaMetadata | null) => setLoadedOoklaSummary(data), []);
 
   const provinces = useMemo(
     () => [...new Set(coverageData.map((row) => row.province))].sort((a, b) => a.localeCompare(b, "id")),
@@ -344,10 +354,40 @@ export default function Dashboard() {
       return (
         <div className="map-panel-body">
           <div className="map-control-section">
-            <div className="map-section-heading"><span>PERFORMA JARINGAN</span><span className="map-source-chip">OOKLA · Q1 2026</span></div>
+            <div className="map-section-heading">
+              <span>PERFORMA JARINGAN</span>
+              <span className="map-source-chip">
+                OOKLA · {(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
+              </span>
+            </div>
+            <div className="ookla-data-selects">
+              <label>
+                <span>Jenis jaringan</span>
+                <select
+                  aria-label="Pilih jenis jaringan Ookla"
+                  onChange={(event) => setOoklaNetworkType(event.target.value as OoklaNetworkType)}
+                  value={ooklaNetworkType}
+                >
+                  <option value="mobile">Mobile</option>
+                  <option value="fixed">Fixed broadband</option>
+                </select>
+              </label>
+              <label>
+                <span>Periode</span>
+                <select
+                  aria-label="Pilih periode data Ookla"
+                  onChange={(event) => setOoklaPeriod(event.target.value)}
+                  value={ooklaPeriod}
+                >
+                  {ooklaPeriods.periods.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
-              <span><strong>Hasil pengukuran</strong><small>{overlayOn ? "Overlay performa aktif" : "Overlay disembunyikan"}</small></span>
+              <span><strong>Hasil pengukuran</strong><small>{overlayOn ? `Overlay ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} aktif` : "Overlay disembunyikan"}</small></span>
               <i className={`switch-track ${overlayOn ? "is-on" : ""}`} />
             </button>
             <button aria-pressed={view3d} className="map-layer-switch" disabled={!overlayOn} onClick={() => setView3d((value) => !value)}>
@@ -365,7 +405,7 @@ export default function Dashboard() {
                   onClick={() => setMapMetric(metric.value)}
                 >
                   <span>{metric.value === "download" ? "↓" : metric.value === "upload" ? "↑" : "◷"}</span>
-                  <span>{metric.short}<small>{metric.reading}</small></span>
+                  <span>{metric.short}<small>{metricReading(metric.value, ooklaSummary)}</small></span>
                 </button>
               ))}
             </div>
@@ -481,17 +521,19 @@ export default function Dashboard() {
     return (
       <div className="map-panel-body">
         <div className="map-stat-lead">
-          <span className="map-stat-kicker">PENGUKURAN MOBILE · Q1 2026</span>
-          <strong>{(ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })}<small>Mbps</small></strong>
+          <span className="map-stat-kicker">
+            PENGUKURAN {(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
+          </span>
+          <strong>{ooklaSummary ? (ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 }) : "—"}<small>Mbps</small></strong>
           <span>kecepatan unduh rata-rata tertimbang tes</span>
         </div>
         <div className="map-stat-grid">
-          <div><span>Unggah</span><strong>{(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps</strong></div>
-          <div><span>Latensi</span><strong>{ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms</strong></div>
-          <div><span>Tes tercatat</span><strong>{formatNumber(ooklaSummary.tests)}</strong></div>
-          <div><span>Perangkat</span><strong>{formatNumber(ooklaSummary.devices)}</strong></div>
-          <div><span>Sel asli</span><strong>{formatNumber(ooklaSummary.records)}</strong></div>
-          <div><span>Sel peta</span><strong>{formatNumber(ooklaSummary.aggregatedCells)}</strong></div>
+          <div><span>Unggah</span><strong>{ooklaSummary ? `${(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—"}</strong></div>
+          <div><span>Latensi</span><strong>{ooklaSummary ? `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms` : "—"}</strong></div>
+          <div><span>Tes tercatat</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.tests) : "—"}</strong></div>
+          <div><span>Perangkat</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.devices) : "—"}</strong></div>
+          <div><span>Sel asli</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.records) : "—"}</strong></div>
+          <div><span>Sel peta</span><strong>{ooklaSummary ? formatNumber(ooklaSummary.aggregatedCells) : "—"}</strong></div>
         </div>
         <div className="map-section-heading"><span>RATA-RATA CAKUPAN · {coverageData.length} WILAYAH</span></div>
         <div className="map-coverage-bars">
@@ -511,12 +553,15 @@ export default function Dashboard() {
       <MapView
         focusLocation={focusLocation}
         metric={mapMetric}
+        networkType={ooklaNetworkType}
+        period={ooklaPeriod}
         basemap={basemap}
         overlayOn={overlayOn}
         view3d={view3d}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
         onInitialLoadComplete={finishInitialLoading}
+        onDataLoaded={updateOoklaSummary}
       />
 
       <header className="map-topbar">
@@ -635,7 +680,7 @@ export default function Dashboard() {
             {metrics.map((metric, i) => (
               <button
                 aria-checked={mapMetric === metric.value}
-                aria-label={`${metric.label}: rata-rata ${metric.reading}`}
+                aria-label={`${metric.label}: rata-rata ${metricReading(metric.value, ooklaSummary)}`}
                 className={mapMetric === metric.value ? "is-active" : ""}
                 key={metric.value}
                 onClick={() => setMapMetric(metric.value)}
@@ -646,7 +691,7 @@ export default function Dashboard() {
                 type="button"
               >
                 <span aria-hidden="true">{metric.short}</span>
-                <strong aria-hidden="true">{metric.reading}</strong>
+                <strong aria-hidden="true">{metricReading(metric.value, ooklaSummary)}</strong>
               </button>
             ))}
           </div>
@@ -695,7 +740,7 @@ export default function Dashboard() {
         <span className="map-bottom-pulse" />
         <span>{focusLocation.name}</span>
         <i />
-        <span>{overlayOn ? "Ookla mobile" : "Overlay nonaktif"}</span>
+        <span>{overlayOn ? `Ookla ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} · ${ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}` : "Overlay nonaktif"}</span>
       </div>
 
       <div

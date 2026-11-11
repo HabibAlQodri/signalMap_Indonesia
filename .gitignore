@@ -20,6 +20,7 @@
 
 # production
 /build
+/lib/data_ookla/
 
 # misc
 .DS_Store

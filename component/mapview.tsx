@@ -13,7 +13,13 @@ import {
   getLevel,
   levelIndexFor,
 } from "../lib/cell-index";
-import ooklaSummary from "../lib/ookla-summary.json";
+import {
+  type OoklaData,
+  type OoklaMetadata,
+  type OoklaNetworkType,
+  formatOoklaNetworkType,
+  formatOoklaPeriod,
+} from "../lib/ookla-data";
 import Icon from "./icon";
 
 export type MapMetric = "download" | "upload" | "latency";
@@ -26,51 +32,48 @@ type FocusLocation = {
   key: number;
 };
 
-type OoklaData = {
-  year: number;
-  quarter: number;
-  records: number;
-  tests: number;
-  cells: number[][];
-};
-
 type MapViewProps = {
   focusLocation: FocusLocation;
   metric: MapMetric;
+  networkType: OoklaNetworkType;
+  period: string;
   basemap: Basemap;
   overlayOn: boolean;
   view3d?: boolean;
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onInitialLoadComplete?: () => void;
+  onDataLoaded: (data: OoklaMetadata | null) => void;
 };
 
-const metricDetails: Record<
+function metricDetailsFor(data: OoklaData | null): Record<
   MapMetric,
   { label: string; unit: string; bands: [string, string, string, string]; average: string; ends: [string, string] }
-> = {
-  download: {
-    label: "Kecepatan unduh",
-    unit: "Mbps",
-    bands: ["<20", "20–50", "50–100", ">100"],
-    average: `${(ooklaSummary.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
-    ends: ["Rendah", "Tinggi"],
-  },
-  upload: {
-    label: "Kecepatan unggah",
-    unit: "Mbps",
-    bands: ["<20", "20–50", "50–100", ">100"],
-    average: `${(ooklaSummary.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`,
-    ends: ["Rendah", "Tinggi"],
-  },
-  latency: {
-    label: "Latensi",
-    unit: "ms",
-    bands: [">100", "60–100", "30–60", "≤30"],
-    average: `${ooklaSummary.avgLatencyMs.toLocaleString("id-ID")} ms`,
-    ends: ["Lambat", "Cepat"],
-  },
-};
+> {
+  return {
+    download: {
+      label: "Kecepatan unduh",
+      unit: "Mbps",
+      bands: ["<20", "20–50", "50–100", ">100"],
+      average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
+      ends: ["Rendah", "Tinggi"],
+    },
+    upload: {
+      label: "Kecepatan unggah",
+      unit: "Mbps",
+      bands: ["<20", "20–50", "50–100", ">100"],
+      average: data ? `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
+      ends: ["Rendah", "Tinggi"],
+    },
+    latency: {
+      label: "Latensi",
+      unit: "ms",
+      bands: [">100", "60–100", "30–60", "≤30"],
+      average: data ? `${data.avgLatencyMs.toLocaleString("id-ID")} ms` : "—",
+      ends: ["Lambat", "Cepat"],
+    },
+  };
+}
 
 const basemapNames: Record<Basemap, string> = {
   voyager: "voyager",
@@ -232,15 +235,24 @@ function heatSprite(color: string) {
 export default function MapView({
   focusLocation,
   metric,
+  networkType,
+  period,
   basemap,
   overlayOn,
   view3d = false,
   fullscreen = false,
   onToggleFullscreen,
   onInitialLoadComplete,
+  onDataLoaded,
 }: MapViewProps) {
-  const [data, setData] = useState<OoklaData | null>(null);
-  const [dataError, setDataError] = useState("");
+  const datasetKey = `${networkType}-${period}`;
+  const [loadedDataset, setLoadedDataset] = useState<{
+    key: string;
+    data: OoklaData | null;
+    error: string;
+  } | null>(null);
+  const data = loadedDataset?.key === datasetKey ? loadedDataset.data : null;
+  const dataError = loadedDataset?.key === datasetKey ? loadedDataset.error : "";
   const [mapError, setMapError] = useState("");
   const [locationError, setLocationError] = useState("");
   const [mapReady, setMapReady] = useState(false);
@@ -268,7 +280,7 @@ export default function MapView({
   const cartoKey = process.env.NEXT_PUBLIC_CARTO_KEY;
 
   // Sel terpilih hanya relevan saat overlay aktif.
-  const activeCell = overlayOn ? selectedCell : null;
+  const activeCell = overlayOn && data ? selectedCell : null;
 
   useEffect(() => {
     dataRef.current = data;
@@ -316,18 +328,26 @@ export default function MapView({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/data/ookla-mobile-tiles.json", { signal: controller.signal })
+    fetch(`/data/ookla/${networkType}-${period}.json`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Permintaan data gagal (${response.status}).`);
         return response.json() as Promise<OoklaData>;
       })
-      .then(setData)
+      .then((result) => {
+        setSelectedCell(null);
+        setLoadedDataset({ key: datasetKey, data: result, error: "" });
+        onDataLoaded(result);
+      })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setDataError(error instanceof Error ? error.message : "Data peta gagal dimuat.");
+        setLoadedDataset({
+          key: datasetKey,
+          data: null,
+          error: error instanceof Error ? error.message : "Data peta gagal dimuat.",
+        });
       });
     return () => controller.abort();
-  }, []);
+  }, [datasetKey, networkType, period, onDataLoaded]);
 
   useEffect(() => {
     const dataFinished = data !== null || dataError !== "";
@@ -733,7 +753,10 @@ export default function MapView({
   }
 
   const selectedMetric = activeCell ? metricValue(activeCell, metric) : null;
+  const metricDetails = metricDetailsFor(data);
   const details = metricDetails[metric];
+  const periodLabel = data?.periodLabel ?? formatOoklaPeriod(period);
+  const networkLabel = data?.networkLabel ?? formatOoklaNetworkType(networkType);
 
   return (
     <div aria-label="Peta interaktif performa jaringan Indonesia" className={`map-canvas map-stage basemap-${basemap} ${view3d ? "is-3d" : ""}`} role="application">
@@ -768,7 +791,7 @@ export default function MapView({
             <div className="map-cell-foot">
               <span><b>{formatNumber(activeCell[5])}</b> tes</span>
               <span><b>{formatNumber(activeCell[6])}</b> perangkat</span>
-              <span>Ookla · Q1 2026</span>
+              <span>Ookla · {periodLabel}</span>
             </div>
           </div>
         )}
@@ -802,14 +825,14 @@ export default function MapView({
           <span className="map-performance-dot" />
           <span>{details.label.toLocaleUpperCase("id-ID")}</span>
           <i />
-          <span>OOKLA · Q1 2026</span>
+          <span>OOKLA · {networkLabel.toLocaleUpperCase("id-ID")} · {periodLabel}</span>
         </div>
         <strong className="map-performance-value">
           {selectedMetric === null ? details.average : formatCellMetric(selectedMetric, metric)}
         </strong>
         <div className="map-performance-bottom">
-          <span>{activeCell ? `${formatNumber(activeCell[5])} tes di ${(activeCell[7] ?? 1) > 1 ? "area" : "sel"} ini` : "Rata-rata nasional tertimbang tes"}</span>
-          <span>{activeCell ? `${formatNumber(activeCell[6])} perangkat` : `${formatNumber(ooklaSummary.tests)} tes`}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[5])} tes di ${(activeCell[7] ?? 1) > 1 ? "area" : "sel"} ini` : "Rata-rata area tertimbang tes"}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[6])} perangkat` : data ? `${formatNumber(data.tests)} tes` : "—"}</span>
         </div>
         {activeCell && <div className="map-performance-coordinate">{activeCell[1].toFixed(3)}°, {activeCell[0].toFixed(3)}°</div>}
       </div>
