@@ -21,6 +21,7 @@ import {
   formatOoklaPeriod,
 } from "../lib/ookla-data";
 import Icon from "./icon";
+import { useLanguage } from "../lib/i18n";
 
 export type MapMetric = "download" | "upload" | "latency";
 export type Basemap = "light" | "voyager" | "dark";
@@ -60,7 +61,7 @@ export function colorForDelta(pct: number) {
   return "#d65e4d"; // Penurunan
 }
 
-function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "normal"): Record<
+function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode, t: (message: string) => string, locale: string): Record<
   MapMetric,
   { label: string; unit: string; bands: LegendBand[]; average: string; ends: [string, string] }
 > {
@@ -70,42 +71,42 @@ function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "norma
       { label: "±15%", color: "#e8ac48" },
       { label: "+15–50%", color: "#83b968" },
       { label: ">+50%", color: "#16a085" },
-      { label: "Baru", color: "#2563eb" },
+      { label: t("Baru"), color: "#2563eb" },
     ];
     return {
       download: {
-        label: "Pertumbuhan Unduh (YoY)",
+        label: t("Pertumbuhan Unduh (YoY)"),
         unit: "% YoY",
         bands: deltaBands,
-        average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
-        ends: ["Turun", "Naik"],
+        average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps` : "—",
+        ends: [t("Turun"), t("Naik")],
       },
       upload: {
-        label: "Pertumbuhan Unggah (YoY)",
+        label: t("Pertumbuhan Unggah (YoY)"),
         unit: "% YoY",
         bands: deltaBands,
-        average: data ? `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
-        ends: ["Turun", "Naik"],
+        average: data ? `${(data.avgUploadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps` : "—",
+        ends: [t("Turun"), t("Naik")],
       },
       latency: {
-        label: "Perbaikan Latensi (YoY)",
+        label: t("Perbaikan Latensi (YoY)"),
         unit: "% YoY",
         bands: [
-          { label: "Memburuk", color: "#d65e4d" },
-          { label: "Stabil", color: "#e8ac48" },
-          { label: "Membaik", color: "#83b968" },
+          { label: t("Memburuk"), color: "#d65e4d" },
+          { label: t("Stabil"), color: "#e8ac48" },
+          { label: t("Membaik"), color: "#83b968" },
           { label: ">+50%", color: "#16a085" },
-          { label: "Baru", color: "#2563eb" },
+          { label: t("Baru"), color: "#2563eb" },
         ],
-        average: data ? `${data.avgLatencyMs.toLocaleString("id-ID")} ms` : "—",
-        ends: ["Memburuk", "Membaik"],
+        average: data ? `${data.avgLatencyMs.toLocaleString(locale)} ms` : "—",
+        ends: [t("Memburuk"), t("Membaik")],
       },
     };
   }
 
   return {
     download: {
-      label: "Kecepatan unduh",
+      label: t("Kecepatan unduh"),
       unit: "Mbps",
       bands: [
         { label: "<20", color: "#d65e4d" },
@@ -113,11 +114,11 @@ function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "norma
         { label: "50–100", color: "#83b968" },
         { label: ">100", color: "#16a085" },
       ],
-      average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
-      ends: ["Rendah", "Tinggi"],
+      average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps` : "—",
+      ends: [t("Rendah"), t("Tinggi")],
     },
     upload: {
-      label: "Kecepatan unggah",
+      label: t("Kecepatan unggah"),
       unit: "Mbps",
       bands: [
         { label: "<20", color: "#d65e4d" },
@@ -125,11 +126,11 @@ function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "norma
         { label: "50–100", color: "#83b968" },
         { label: ">100", color: "#16a085" },
       ],
-      average: data ? `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
-      ends: ["Rendah", "Tinggi"],
+      average: data ? `${(data.avgUploadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps` : "—",
+      ends: [t("Rendah"), t("Tinggi")],
     },
     latency: {
-      label: "Latensi",
+      label: t("Latensi"),
       unit: "ms",
       bands: [
         { label: ">100", color: "#d65e4d" },
@@ -137,8 +138,8 @@ function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "norma
         { label: "30–60", color: "#83b968" },
         { label: "≤30", color: "#16a085" },
       ],
-      average: data ? `${data.avgLatencyMs.toLocaleString("id-ID")} ms` : "—",
-      ends: ["Lambat", "Cepat"],
+      average: data ? `${data.avgLatencyMs.toLocaleString(locale)} ms` : "—",
+      ends: [t("Lambat"), t("Cepat")],
     },
   };
 }
@@ -163,10 +164,10 @@ function colorForMetric(value: number, metric: MapMetric) {
   return "#d65e4d";
 }
 
-function qualityFor(value: number, metric: MapMetric) {
+function qualityFor(value: number, metric: MapMetric, t: (message: string) => string) {
   const color = colorForMetric(value, metric);
   const label =
-    color === "#16a085" ? "Sangat baik" : color === "#83b968" ? "Baik" : color === "#e8ac48" ? "Cukup" : "Rendah";
+    color === "#16a085" ? t("Sangat baik") : color === "#83b968" ? t("Baik") : color === "#e8ac48" ? t("Cukup") : t("Rendah");
   return { color, label };
 }
 
@@ -174,9 +175,9 @@ function metricValue(cell: Cell, metric: MapMetric) {
   return metric === "download" ? cell[2] : metric === "upload" ? cell[3] : cell[4];
 }
 
-function formatCellMetric(value: number, metric: MapMetric) {
-  if (metric === "latency") return `${value.toLocaleString("id-ID")} ms`;
-  return `${(value / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
+function formatCellMetric(value: number, metric: MapMetric, locale = "id-ID") {
+  if (metric === "latency") return `${value.toLocaleString(locale)} ms`;
+  return `${(value / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps`;
 }
 
 /** Cari sel terdekat dari titik layar memakai indeks grid (tidak memindai semua data). */
@@ -361,6 +362,13 @@ export default function MapView({
   onDataLoaded,
   onMapDataLoaded,
 }: MapViewProps) {
+  const { t, locale } = useLanguage();
+  const tRef = useRef(t);
+  const localeRef = useRef(locale === "en" ? "en-US" : "id-ID");
+  useEffect(() => {
+    tRef.current = t;
+    localeRef.current = locale === "en" ? "en-US" : "id-ID";
+  }, [locale, t]);
   const datasetKey = `${networkType}-${period}`;
   const [loadedDataset, setLoadedDataset] = useState<{
     key: string;
@@ -521,7 +529,7 @@ export default function MapView({
     const controller = new AbortController();
     fetch(`/data/ookla/${networkType}-${period}.json`, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(`Permintaan data gagal (${response.status}).`);
+        if (!response.ok) throw new Error(tRef.current("Permintaan data gagal ({status}).").replace("{status}", String(response.status)));
         return response.json() as Promise<OoklaData>;
       })
       .then((result) => {
@@ -537,7 +545,7 @@ export default function MapView({
         setLoadedDataset({
           key: datasetKey,
           data: null,
-          error: error instanceof Error ? error.message : "Data peta gagal dimuat.",
+          error: error instanceof Error ? error.message : tRef.current("Data peta gagal dimuat."),
         });
       });
     return () => controller.abort();
@@ -597,18 +605,18 @@ export default function MapView({
       if (viewModeRef.current === "delta" && referenceIndexRef.current) {
         const delta = getCellDelta(found, referenceIndexRef.current, metricRef.current);
         if (delta.pct === 9999) {
-          tip.textContent = `${formatCellMetric(value, metricRef.current)} · Area Baru (YoY)`;
+          tip.textContent = `${formatCellMetric(value, metricRef.current, localeRef.current)} · ${tRef.current("Area Baru (YoY)")}`;
           tip.style.setProperty("--tip-color", "#2563eb");
         } else if (delta.pct !== null) {
           const sign = delta.pct > 0 ? "+" : "";
-          tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${sign}${delta.pct.toFixed(1)}% YoY`;
+          tip.textContent = `${formatCellMetric(value, metricRef.current, localeRef.current)} · ${sign}${delta.pct.toFixed(1)}% YoY`;
           tip.style.setProperty("--tip-color", colorForDelta(delta.pct));
         } else {
-          tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
+          tip.textContent = `${formatCellMetric(value, metricRef.current, localeRef.current)} · ${formatNumber(found[5], localeRef.current)} ${tRef.current("tes")}`;
           tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
         }
       } else {
-        tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
+        tip.textContent = `${formatCellMetric(value, metricRef.current, localeRef.current)} · ${formatNumber(found[5], localeRef.current)} ${tRef.current("tes")}`;
         tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
       }
       tip.style.display = "block";
@@ -680,7 +688,7 @@ export default function MapView({
         });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setMapError(error instanceof Error ? error.message : "Library peta gagal dimuat.");
+        if (!cancelled) setMapError(error instanceof Error ? error.message : tRef.current("Library peta gagal dimuat."));
       });
 
     return () => {
@@ -741,7 +749,7 @@ export default function MapView({
       }
       const context = currentCanvas.getContext("2d");
       if (!context) {
-        setMapError("Canvas peta tidak tersedia di browser ini.");
+        setMapError(tRef.current("Canvas peta tidak tersedia di browser ini."));
         return;
       }
       context.setTransform(scale, 0, 0, scale, 0, 0);
@@ -951,7 +959,7 @@ export default function MapView({
 
   function locateUser() {
     if (!navigator.geolocation) {
-      showLocationError("Lokasi perangkat tidak didukung oleh browser ini.");
+      showLocationError(t("Lokasi perangkat tidak didukung oleh browser ini."));
       return;
     }
     clearLocationError();
@@ -961,20 +969,21 @@ export default function MapView({
         setSelectedCell(null);
       },
       (error) => {
-        showLocationError(error.code === error.PERMISSION_DENIED ? "Izin lokasi belum diberikan." : "Lokasi perangkat tidak dapat ditemukan.");
+        showLocationError(error.code === error.PERMISSION_DENIED ? t("Izin lokasi belum diberikan.") : t("Lokasi perangkat tidak dapat ditemukan."));
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     );
   }
 
   const selectedMetric = activeCell ? metricValue(activeCell, metric) : null;
-  const metricDetails = metricDetailsFor(data, viewMode);
+  const numberLocale = locale === "en" ? "en-US" : "id-ID";
+  const metricDetails = metricDetailsFor(data, viewMode, t, numberLocale);
   const details = metricDetails[metric];
   const periodLabel = data?.periodLabel ?? formatOoklaPeriod(period);
   const networkLabel = data?.networkLabel ?? formatOoklaNetworkType(networkType);
 
   return (
-    <div aria-label="Peta interaktif performa jaringan Indonesia" className={`map-canvas map-stage basemap-${basemap} ${view3d ? "is-3d" : ""}`} role="application">
+    <div aria-label={t("Peta interaktif performa jaringan Indonesia")} className={`map-canvas map-stage basemap-${basemap} ${view3d ? "is-3d" : ""}`} role="application">
       <div className="maplibre-container" ref={mapContainerRef} />
       <canvas aria-hidden="true" className="map-data-canvas" ref={canvasRef} />
 
@@ -982,18 +991,18 @@ export default function MapView({
 
       <div aria-live="polite" className="map-cell-popup" ref={popupRef}>
         {activeCell && (
-          <div className="map-cell-popup-card" role="dialog" aria-label="Detail sel pengukuran">
+          <div className="map-cell-popup-card" role="dialog" aria-label={t("Detail sel pengukuran")}>
             <div className="map-cell-popup-head">
               <div>
-                <strong>{(activeCell[7] ?? 1) > 1 ? `Area gabungan · ${formatNumber(activeCell[7])} sel` : "Sel pengukuran"}</strong>
+                <strong>{(activeCell[7] ?? 1) > 1 ? t("Area gabungan · {count} sel", { count: formatNumber(activeCell[7], numberLocale) }) : t("Sel pengukuran")}</strong>
                 <small>{activeCell[1].toFixed(3)}°, {activeCell[0].toFixed(3)}°</small>
               </div>
-              <button aria-label="Tutup detail sel" onClick={() => setSelectedCell(null)}><Icon name="close" size={14} /></button>
+              <button aria-label={t("Tutup detail sel")} onClick={() => setSelectedCell(null)}><Icon name="close" size={14} /></button>
             </div>
             <div className="map-cell-metrics">
               {(["download", "upload", "latency"] as const).map((key) => {
                 const value = metricValue(activeCell, key);
-                const quality = qualityFor(value, key);
+                const quality = qualityFor(value, key, t);
                 const delta = viewMode === "delta" ? getCellDelta(activeCell, referenceIndex, key) : null;
                 const rowColor = delta && delta.pct !== null ? colorForDelta(delta.pct) : quality.color;
                 return (
@@ -1003,7 +1012,7 @@ export default function MapView({
                       {metricDetails[key].label}
                       {delta && delta.pct !== null ? (
                         <em style={{ color: rowColor }}>
-                          {delta.pct === 9999 ? "Cakupan Baru (YoY)" : `${delta.pct > 0 ? "+" : ""}${delta.pct.toFixed(1)}% YoY`}
+                          {delta.pct === 9999 ? t("Cakupan Baru (YoY)") : `${delta.pct > 0 ? "+" : ""}${delta.pct.toFixed(1)}% YoY`}
                         </em>
                       ) : (
                         <em style={{ color: quality.color }}>{quality.label}</em>
@@ -1013,7 +1022,7 @@ export default function MapView({
                       <strong>{formatCellMetric(value, key)}</strong>
                       {delta && delta.prevValue !== null && delta.pct !== 9999 && (
                         <div style={{ fontSize: "10.5px", color: "#84928b" }}>
-                          Thn lalu: {formatCellMetric(delta.prevValue, key)}
+                          {t("Thn lalu: {value}", { value: formatCellMetric(delta.prevValue, key, numberLocale) })}
                         </div>
                       )}
                     </div>
@@ -1022,8 +1031,8 @@ export default function MapView({
               })}
             </div>
             <div className="map-cell-foot">
-              <span><b>{formatNumber(activeCell[5])}</b> tes</span>
-              <span><b>{formatNumber(activeCell[6])}</b> perangkat</span>
+              <span><b>{formatNumber(activeCell[5], numberLocale)}</b> {t("tes")}</span>
+              <span><b>{formatNumber(activeCell[6], numberLocale)}</b> {t("perangkat")}</span>
               <span>Ookla · {periodLabel}</span>
             </div>
           </div>
@@ -1032,20 +1041,20 @@ export default function MapView({
 
       <div className="map-control-stack">
         <div className="map-control-group">
-          <button aria-label="Perbesar peta" disabled={!mapReady} onClick={() => zoomMap(1)} title="Perbesar"><Icon name="plus" size={18} /></button>
-          <button aria-label="Perkecil peta" disabled={!mapReady} onClick={() => zoomMap(-1)} title="Perkecil"><Icon name="zoom-out" size={18} /></button>
+          <button aria-label={t("Perbesar peta")} disabled={!mapReady} onClick={() => zoomMap(1)} title={t("Perbesar")}><Icon name="plus" size={18} /></button>
+          <button aria-label={t("Perkecil peta")} disabled={!mapReady} onClick={() => zoomMap(-1)} title={t("Perkecil")}><Icon name="zoom-out" size={18} /></button>
         </div>
         <div className="map-control-group">
-          <button aria-label="Arahkan peta ke utara" disabled={!mapReady} onClick={resetNorth} title="Reset arah utara">
+          <button aria-label={t("Arahkan peta ke utara")} disabled={!mapReady} onClick={resetNorth} title={t("Reset arah utara")}>
             <span className="map-compass-icon" ref={compassRef}><Icon name="compass" size={18} /></span>
           </button>
-          <button aria-label="Gunakan lokasi saya" disabled={!mapReady} onClick={locateUser} title="Lokasi saya"><Icon name="locate" size={17} /></button>
+          <button aria-label={t("Gunakan lokasi saya")} disabled={!mapReady} onClick={locateUser} title={t("Lokasi saya")}><Icon name="locate" size={17} /></button>
           {onToggleFullscreen && (
             <button
-              aria-label={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"}
+              aria-label={t(fullscreen ? "Keluar dari layar penuh" : "Layar penuh")}
               aria-pressed={fullscreen}
               onClick={onToggleFullscreen}
-              title={fullscreen ? "Keluar dari layar penuh" : "Layar penuh"}
+              title={t(fullscreen ? "Keluar dari layar penuh" : "Layar penuh")}
             >
               <Icon name="expand" size={17} />
             </button>
@@ -1056,7 +1065,7 @@ export default function MapView({
       <div className="map-floating-card map-performance-card">
         <div className="map-performance-top">
           <span className="map-performance-dot" />
-          <span>{details.label.toLocaleUpperCase("id-ID")}</span>
+          <span>{details.label.toLocaleUpperCase(locale === "en" ? "en-US" : "id-ID")}</span>
           <i />
           <span>OOKLA · {networkLabel.toLocaleUpperCase("id-ID")} · {periodLabel}</span>
         </div>
@@ -1064,19 +1073,19 @@ export default function MapView({
           {selectedMetric === null ? details.average : formatCellMetric(selectedMetric, metric)}
         </strong>
         <div className="map-performance-bottom">
-          <span>{activeCell ? `${formatNumber(activeCell[5])} tes di ${(activeCell[7] ?? 1) > 1 ? "area" : "sel"} ini` : "Rata-rata area tertimbang tes"}</span>
-          <span>{activeCell ? `${formatNumber(activeCell[6])} perangkat` : data ? `${formatNumber(data.tests)} tes` : "—"}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[5], numberLocale)} ${t("tes di {area} ini", { area: t((activeCell[7] ?? 1) > 1 ? "area" : "sel") })}` : t("Rata-rata area tertimbang tes")}</span>
+          <span>{activeCell ? `${formatNumber(activeCell[6], numberLocale)} ${t("perangkat")}` : data ? `${formatNumber(data.tests, numberLocale)} ${t("tes")}` : "—"}</span>
         </div>
         {activeCell && <div className="map-performance-coordinate">{activeCell[1].toFixed(3)}°, {activeCell[0].toFixed(3)}°</div>}
       </div>
 
       {!data && !dataError && (
-        <div className="map-loading-chip" role="status"><span className="map-loading-spinner" />Memuat data pengukuran…</div>
+        <div className="map-loading-chip" role="status"><span className="map-loading-spinner" />{t("Memuat data pengukuran…")}</div>
       )}
       {!cartoKey && (
         <div className="map-location-error" role="status">
           <Icon name="locate" size={15} />
-          <span>Basemap belum dikonfigurasi. Isi NEXT_PUBLIC_CARTO_KEY di .env.local lalu jalankan ulang aplikasi.</span>
+          <span>{t("Basemap belum dikonfigurasi. Isi NEXT_PUBLIC_CARTO_KEY di .env.local lalu jalankan ulang aplikasi.")}</span>
         </div>
       )}
       {(locationError || mapError) && (
@@ -1084,7 +1093,7 @@ export default function MapView({
           <Icon name="locate" size={15} />
           <span>{locationError || mapError}</span>
           <button
-            aria-label="Tutup notifikasi"
+            aria-label={t("Tutup notifikasi")}
             className="map-error-close-btn"
             onClick={() => {
               clearLocationError();
@@ -1117,17 +1126,17 @@ export default function MapView({
         </div>
         <p className="map-legend-note">
           {viewMode === "delta"
-            ? "Peta Pertumbuhan YoY · Biru = area baru · Klik titik untuk perbandingan"
+            ? t("Peta Pertumbuhan YoY · Biru = area baru · Klik titik untuk perbandingan")
             : view3d
-            ? "Tinggi batang = jumlah tes · warna = metrik · klik kanan + geser untuk memutar"
-            : "Titik = sel ukur · klik untuk detail"}
+            ? t("Tinggi batang = jumlah tes · warna = metrik · klik kanan + geser untuk memutar")
+            : t("Titik = sel ukur · klik untuk detail")}
         </p>
       </div>
 
       <div className="map-hud" aria-hidden="true">
         <span ref={coordRef}>—</span>
         <i />
-        <span ref={zoomRef}>Zoom —</span>
+        <span ref={zoomRef}>{t("Zoom")} —</span>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icon from "./icon";
+import { useLanguage } from "../lib/i18n";
 
 type TimeLapsePlayerProps = {
   periods: { value: string; label: string }[];
@@ -24,6 +25,7 @@ export default function TimeLapsePlayer({
   onToggleNetworkType,
   hasReferencePeriod,
 }: TimeLapsePlayerProps) {
+  const { t } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2>(1);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -89,48 +91,48 @@ export default function TimeLapsePlayer({
         <button
           className="timelapse-pill-btn"
           onClick={() => setIsMinimized(false)}
-          title="Buka panel linimasa pemutar waktu"
+          title={t("Buka panel linimasa pemutar waktu")}
           type="button"
         >
           <Icon name="play" size={15} />
-          <span>Linimasa · <strong>{currentLabel}</strong></span>
+          <span>{t("Linimasa")} · <strong>{currentLabel}</strong></span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="timelapse-dock" role="region" aria-label="Pemutar Linimasa dan Pertumbuhan">
+    <div className="timelapse-dock" role="region" aria-label={t("Pemutar Linimasa dan Pertumbuhan")}>
       <div className="timelapse-inner">
         {/* Kontrol Navigasi Waktu */}
         <div className="timelapse-playback-group">
           <button
-            aria-label="Kuartal sebelumnya"
+            aria-label={t("Kuartal sebelumnya")}
             className="timelapse-btn"
             disabled={safeIndex <= 0}
             onClick={handlePrev}
-            title="Kuartal sebelumnya"
+            title={t("Kuartal sebelumnya")}
             type="button"
           >
             <Icon name="skip-back" size={14} />
           </button>
 
           <button
-            aria-label={isPlaying ? "Jeda linimasa" : "Putar linimasa"}
+            aria-label={t(isPlaying ? "Jeda linimasa" : "Putar linimasa")}
             className={`timelapse-btn timelapse-play-btn ${isPlaying ? "is-playing" : ""}`}
             onClick={() => setIsPlaying((v) => !v)}
-            title={isPlaying ? "Jeda" : "Mulai putar animasi dari kuartal ke kuartal"}
+            title={t(isPlaying ? "Jeda" : "Mulai putar animasi dari kuartal ke kuartal")}
             type="button"
           >
             <Icon name={isPlaying ? "pause" : "play"} size={16} />
           </button>
 
           <button
-            aria-label="Kuartal berikutnya"
+            aria-label={t("Kuartal berikutnya")}
             className="timelapse-btn"
             disabled={safeIndex >= chronologicalPeriods.length - 1}
             onClick={handleNext}
-            title="Kuartal berikutnya"
+            title={t("Kuartal berikutnya")}
             type="button"
           >
             <Icon name="skip-forward" size={14} />
@@ -149,7 +151,7 @@ export default function TimeLapsePlayer({
               <button
                 className={`timelapse-speed-btn ${speed === 1 ? "is-active" : ""}`}
                 onClick={() => setSpeed(1)}
-                title="Kecepatan normal (1x)"
+                title={t("Kecepatan normal (1x)")}
                 type="button"
               >
                 1x
@@ -157,7 +159,7 @@ export default function TimeLapsePlayer({
               <button
                 className={`timelapse-speed-btn ${speed === 2 ? "is-active" : ""}`}
                 onClick={() => setSpeed(2)}
-                title="Kecepatan cepat (2x)"
+                title={t("Kecepatan cepat (2x)")}
                 type="button"
               >
                 2x
@@ -167,7 +169,7 @@ export default function TimeLapsePlayer({
 
           <div className="timelapse-slider-wrap">
             <input
-              aria-label="Pilih kuartal linimasa"
+              aria-label={t("Pilih kuartal linimasa")}
               className="timelapse-slider"
               max={chronologicalPeriods.length - 1}
               min={0}
@@ -188,20 +190,20 @@ export default function TimeLapsePlayer({
             onClick={onToggleViewMode}
             title={
               hasReferencePeriod
-                ? "Tampilkan peta pertumbuhan YoY (dibandingkan 1 tahun sebelumnya)"
-                : "Data 1 tahun sebelumnya tidak tersedia untuk periode ini"
+                ? t("Tampilkan peta pertumbuhan YoY (dibandingkan 1 tahun sebelumnya)")
+                : t("Data 1 tahun sebelumnya tidak tersedia untuk periode ini")
             }
             type="button"
           >
             <Icon name="trending-up" size={14} />
-            <span>Pertumbuhan YoY</span>
+            <span>{t("Pertumbuhan YoY")}</span>
             {viewMode === "delta" && <span className="timelapse-active-dot" />}
           </button>
 
           <button
             className="timelapse-network-toggle"
             onClick={onToggleNetworkType}
-            title={`Ubah ke ${networkType === "mobile" ? "Fixed broadband" : "Mobile"}`}
+            title={t("Ubah ke {network}", { network: t(networkType === "mobile" ? "Fixed broadband" : "Mobile") })}
             type="button"
           >
             <Icon name={networkType === "mobile" ? "cell" : "signal"} size={13} />
@@ -209,10 +211,10 @@ export default function TimeLapsePlayer({
           </button>
 
           <button
-            aria-label="Kecilkan panel linimasa"
+            aria-label={t("Kecilkan panel linimasa")}
             className="timelapse-minimize-btn"
             onClick={() => setIsMinimized(true)}
-            title="Kecilkan linimasa"
+            title={t("Kecilkan linimasa")}
             type="button"
           >
             <Icon name="close" size={13} />
@@ -222,4 +224,3 @@ export default function TimeLapsePlayer({
     </div>
   );
 }
-

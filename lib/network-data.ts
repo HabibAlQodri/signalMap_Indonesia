@@ -97,6 +97,6 @@ export function roundCoordinate(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-export function formatNumber(value: number) {
-  return new Intl.NumberFormat("id-ID").format(value);
+export function formatNumber(value: number, locale = "id-ID") {
+  return new Intl.NumberFormat(locale).format(value);
 }

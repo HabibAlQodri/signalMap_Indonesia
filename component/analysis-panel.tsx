@@ -6,6 +6,7 @@ import analysisData from "../lib/ookla-analysis.json";
 import { formatNumber } from "../lib/network-data";
 import type { MapMetric } from "./mapview";
 import Icon from "./icon";
+import { useLanguage } from "../lib/i18n";
 
 type PeriodMode = "year" | "quarter";
 type ChartMode = "performance" | "tests";
@@ -28,10 +29,10 @@ function metricValue(entry: AnalysisValue, metric: MapMetric) {
   return entry.avgLatencyMs;
 }
 
-function formatValue(value: number, metric: MapMetric) {
+function formatValue(value: number, metric: MapMetric, locale = "id-ID") {
   const formatted = metric === "latency"
-    ? value.toLocaleString("id-ID", { maximumFractionDigits: 1 })
-    : (value / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 });
+    ? value.toLocaleString(locale, { maximumFractionDigits: 1 })
+    : (value / 1000).toLocaleString(locale, { maximumFractionDigits: 1 });
   return `${formatted} ${metric === "latency" ? "ms" : "Mbps"}`;
 }
 
@@ -684,6 +685,8 @@ function chartY(value: number, minimum: number, maximum: number) {
 }
 
 export default function AnalysisPanel({ visualizationOnly = false }: { visualizationOnly?: boolean }) {
+  const { t, locale } = useLanguage();
+  const numberLocale = locale === "en" ? "en-US" : "id-ID";
   const [activeTab, setActiveTab] = useState<AnalysisTab>("ranking");
 
   // Tab 1: Tren Wilayah
@@ -772,7 +775,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
   const maximumTests = Math.max(0, ...rows.flatMap((row) => [row.mobile?.tests ?? 0, row.fixed?.tests ?? 0]));
   const xFor = (index: number) => rows.length <= 1 ? 320 : 42 + (index * 566) / (rows.length - 1);
   const testBarWidth = Math.max(2, Math.min(12, 180 / Math.max(rows.length, 1)));
-  const formatTestsAxis = (tests: number) => `${(tests / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+  const formatTestsAxis = (tests: number) => `${(tests / 1_000_000).toLocaleString(numberLocale, { maximumFractionDigits: 1 })} ${locale === "en" ? "M" : "jt"}`;
   const lineFor = (type: "mobile" | "fixed") => rows
     .map((row, index) => {
       const value = row[type] ? metricValue(row[type], metric) : null;
@@ -804,7 +807,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
         latestMobileTests, latestFixedTests, periodChange, changeLabel, format,
       );
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : "Gambar statistik gagal diekspor.");
+      setExportError(t(error instanceof Error ? error.message : "Gambar statistik gagal diekspor."));
     }
   }
 
@@ -816,7 +819,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
         latestMobileTests, latestFixedTests, periodChange, changeLabel,
       );
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : "CSV statistik gagal diekspor.");
+      setExportError(t(error instanceof Error ? error.message : "CSV statistik gagal diekspor."));
     }
   }
 
@@ -828,7 +831,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
         latestMobileTests, latestFixedTests, periodChange, changeLabel,
       );
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : "PDF statistik gagal diekspor.");
+      setExportError(t(error instanceof Error ? error.message : "PDF statistik gagal diekspor."));
     }
   }
 
@@ -837,7 +840,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
     try {
       await exportTableImage(rows, metric, regionLabel, periodMode, format);
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : "Gambar tabel gagal diekspor.");
+      setExportError(t(error instanceof Error ? error.message : "Gambar tabel gagal diekspor."));
     }
   }
 
@@ -846,7 +849,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
     try {
       exportTablePdf(rows, metric, regionLabel, periodMode);
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : "PDF tabel gagal diekspor.");
+      setExportError(t(error instanceof Error ? error.message : "PDF tabel gagal diekspor."));
     }
   }
 
@@ -1016,7 +1019,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
 
   return (
     <div className="map-panel-body analysis-panel">
-      {!visualizationOnly && <div className="analysis-subnav" role="tablist" aria-label="Kategori Analisis">
+      {!visualizationOnly && <div className="analysis-subnav" role="tablist" aria-label={t("Kategori Analisis")}>
         <button
           role="tab"
           aria-selected={activeTab === "ranking"}
@@ -1025,7 +1028,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           type="button"
         >
           <Icon name="bar-chart" size={14} />
-          <span>Peringkat &amp; Komparasi</span>
+          <span>{t("Peringkat & Komparasi")}</span>
         </button>
         <button
           role="tab"
@@ -1035,17 +1038,17 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           type="button"
         >
           <Icon name="sliders" size={14} />
-          <span>Kesenjangan (M-F)</span>
+          <span>{t("Kesenjangan (M-F)")}</span>
         </button>
       </div>}
       <p className="analysis-panel-intro">
         {visualizationOnly
-          ? "Jelajahi tren wilayah dan perubahan YoY melalui visualisasi."
-          : "Tinjau peringkat wilayah dan kesenjangan melalui ringkasan statistik dan tabel."}
+          ? t("Jelajahi tren wilayah dan perubahan YoY melalui visualisasi.")
+          : t("Tinjau peringkat wilayah dan kesenjangan melalui ringkasan statistik dan tabel.")}
       </p>
 
       {visualizationOnly && (
-        <div className="vis-subnav" role="tablist" aria-label="Jenis visualisasi">
+        <div className="vis-subnav" role="tablist" aria-label={t("Jenis visualisasi")}>
           <button
             aria-selected={visTab === "trend"}
             className={`vis-subnav-btn${visTab === "trend" ? " is-active" : ""}`}
@@ -1054,7 +1057,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="activity" size={12} />
-            Tren Wilayah
+            {t("Tren Wilayah")}
           </button>
           <button
             aria-selected={visTab === "compare"}
@@ -1064,7 +1067,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="bar-chart" size={12} />
-            Perubahan YoY
+            {t("Perubahan YoY")}
           </button>
         </div>
       )}
@@ -1072,51 +1075,51 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       {/* ================= VISUALISASI: TREN WILAYAH ================= */}
       {visualizationOnly && visTab === "trend" && (
         <div className="analysis-tab-content">
-          <div className="analysis-period-summary" aria-label="Periode dan jumlah tes Ookla terbaru">
+          <div className="analysis-period-summary" aria-label={t("Periode dan jumlah tes Ookla terbaru")}>
             <div className="analysis-period-main">
-              <span>DATA TERBARU DI ARSIP</span>
+              <span>{t("DATA TERBARU DI ARSIP")}</span>
               <strong>{latestPeriod}</strong>
             </div>
             <div className="analysis-period-tests">
-              <span>JUMLAH TES · {regionLabel}</span>
+              <span>{t("JUMLAH TES · {region}", { region: t(regionLabel) })}</span>
               <div className="analysis-test-counts">
-                <div><span>Mobile</span><strong>{formatNumber(latestMobileTests)}</strong></div>
-                <div><span>Fixed</span><strong>{formatNumber(latestFixedTests)}</strong></div>
+                <div><span>{t("Mobile")}</span><strong>{formatNumber(latestMobileTests, numberLocale)}</strong></div>
+                <div><span>{t("Fixed")}</span><strong>{formatNumber(latestFixedTests, numberLocale)}</strong></div>
               </div>
             </div>
-            <small>Data historis Ookla yang tersedia, bukan pengukuran langsung.</small>
+            <small>{t("Data historis Ookla yang tersedia, bukan pengukuran langsung.")}</small>
           </div>
           <div className="coverage-panel-filters analysis-filters">
             <label>
-              <span>Wilayah analisis · perkiraan</span>
-              <select aria-label="Filter wilayah analisis" onChange={(event) => setRegion(event.target.value)} value={region}>
-                {analysisData.regions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              <span>{t("Wilayah analisis · perkiraan")}</span>
+              <select aria-label={t("Wilayah analisis · perkiraan")} onChange={(event) => setRegion(event.target.value)} value={region}>
+                {analysisData.regions.map((item) => <option key={item.value} value={item.value}>{t(item.label)}</option>)}
               </select>
             </label>
             <label>
-              <span>Metrik</span>
-              <select aria-label="Pilih metrik analisis" onChange={(event) => setMetric(event.target.value as MapMetric)} value={metric}>
-                {Object.entries(metricLabels).map(([val, lbl]) => <option key={val} value={val}>{lbl}</option>)}
+              <span>{t("Metrik")}</span>
+              <select aria-label={t("Pilih metrik analisis")} onChange={(event) => setMetric(event.target.value as MapMetric)} value={metric}>
+                {Object.entries(metricLabels).map(([val, lbl]) => <option key={val} value={val}>{t(lbl)}</option>)}
               </select>
             </label>
           </div>
-          <div aria-label="Pengelompokan periode" className="analysis-period-toggle" role="group">
-            <button aria-pressed={periodMode === "year"} className={periodMode === "year" ? "is-active" : ""} onClick={() => setPeriodMode("year")} type="button">Tahunan</button>
-            <button aria-pressed={periodMode === "quarter"} className={periodMode === "quarter" ? "is-active" : ""} onClick={() => setPeriodMode("quarter")} type="button">Kuartalan</button>
+          <div aria-label={t("Pengelompokan periode")} className="analysis-period-toggle" role="group">
+            <button aria-pressed={periodMode === "year"} className={periodMode === "year" ? "is-active" : ""} onClick={() => setPeriodMode("year")} type="button">{t("Tahunan")}</button>
+            <button aria-pressed={periodMode === "quarter"} className={periodMode === "quarter" ? "is-active" : ""} onClick={() => setPeriodMode("quarter")} type="button">{t("Kuartalan")}</button>
           </div>
           <div className="coverage-panel-filters analysis-filters analysis-period-filters">
             <label>
-              <span>Tahun</span>
-              <select aria-label="Filter tahun tren" onChange={(event) => setSelectedYear(event.target.value)} value={selectedYear}>
-                <option value="all">Semua tahun</option>
+              <span>{t("Tahun")}</span>
+              <select aria-label={t("Filter tahun tren")} onChange={(event) => setSelectedYear(event.target.value)} value={selectedYear}>
+                <option value="all">{t("Semua tahun")}</option>
                 {analysisYears.map((year) => <option key={year} value={year}>{year}</option>)}
               </select>
             </label>
             {periodMode === "quarter" && (
               <label>
-                <span>Kuartal</span>
-                <select aria-label="Filter kuartal tren" onChange={(event) => setSelectedQuarter(event.target.value)} value={selectedQuarter}>
-                  <option value="all">Semua kuartal</option>
+                <span>{t("Kuartal")}</span>
+                <select aria-label={t("Filter kuartal tren")} onChange={(event) => setSelectedQuarter(event.target.value)} value={selectedQuarter}>
+                  <option value="all">{t("Semua kuartal")}</option>
                   {[1, 2, 3, 4].map((quarter) => <option key={quarter} value={quarter}>Q{quarter}</option>)}
                 </select>
               </label>
@@ -1124,25 +1127,25 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           </div>
           <div className="analysis-chart-wrap">
             <div className="analysis-chart-heading">
-              <strong>{chartMode === "performance" ? `Tren ${metricLabels[metric].toLocaleLowerCase("id-ID")}` : "Volume tes Ookla"}</strong>
+              <strong>{chartMode === "performance" ? `${t("Tren {metric}", { metric: t(metricLabels[metric]).toLocaleLowerCase(numberLocale) })}` : t("Volume tes Ookla")}</strong>
               <span>{chartMode === "performance" ? metric === "latency" ? "ms" : "Mbps" : "juta tes"}</span>
             </div>
-            <div aria-label="Jenis grafik" className="analysis-visual-toggle" role="group">
-              <button aria-pressed={chartMode === "performance"} className={chartMode === "performance" ? "is-active" : ""} onClick={() => setChartMode("performance")} type="button">Performa</button>
-              <button aria-pressed={chartMode === "tests"} className={chartMode === "tests" ? "is-active" : ""} onClick={() => setChartMode("tests")} type="button">Volume tes</button>
+            <div aria-label={t("Jenis grafik")} className="analysis-visual-toggle" role="group">
+              <button aria-pressed={chartMode === "performance"} className={chartMode === "performance" ? "is-active" : ""} onClick={() => setChartMode("performance")} type="button">{t("Performa")}</button>
+              <button aria-pressed={chartMode === "tests"} className={chartMode === "tests" ? "is-active" : ""} onClick={() => setChartMode("tests")} type="button">{t("Volume tes")}</button>
             </div>
             <svg
               aria-label={chartMode === "performance"
-                ? `Tren ${metricLabels[metric]} untuk mobile dan fixed, wilayah ${regionLabel}`
-                : `Jumlah tes Mobile dan Fixed berdasarkan periode, wilayah ${regionLabel}`}
+                ? t("Tren {metric} untuk mobile dan fixed, wilayah {region}", { metric: t(metricLabels[metric]), region: t(regionLabel) })
+                : t("Jumlah tes Mobile dan Fixed berdasarkan periode, wilayah {region}", { region: t(regionLabel) })}
               className="analysis-chart"
               role="img"
               viewBox="0 0 640 250"
             >
               <line className="analysis-grid-line" x1="42" x2="608" y1="18" y2="18" />
               <line className="analysis-grid-line" x1="42" x2="608" y1="198" y2="198" />
-              <text className="analysis-axis-label" textAnchor="end" x="37" y="22">{chartMode === "performance" ? formatValue(maximum, metric) : formatTestsAxis(maximumTests)}</text>
-              <text className="analysis-axis-label" textAnchor="end" x="37" y="202">{chartMode === "performance" ? formatValue(minimum, metric) : "0"}</text>
+              <text className="analysis-axis-label" textAnchor="end" x="37" y="22">{chartMode === "performance" ? formatValue(maximum, metric, numberLocale) : formatTestsAxis(maximumTests)}</text>
+              <text className="analysis-axis-label" textAnchor="end" x="37" y="202">{chartMode === "performance" ? formatValue(minimum, metric, numberLocale) : "0"}</text>
               {chartMode === "performance" ? (["mobile", "fixed"] as const).map((type) => (
                 <polyline className={`analysis-line is-${type}`} key={type} points={lineFor(type)} />
               )) : rows.map((row, index) => {
@@ -1161,7 +1164,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                       x={x + (seriesIndex === 0 ? -testBarWidth - 1 : 1)}
                       y={y}
                     >
-                      <title>{`${row.label} · ${type === "mobile" ? "Mobile" : "Fixed"}: ${formatNumber(tests)} tes`}</title>
+                      <title>{`${row.label} · ${t(type === "mobile" ? "Mobile" : "Fixed")}: ${formatNumber(tests, numberLocale)} ${t("tes")}`}</title>
                     </rect>
                   );
                 });
@@ -1175,7 +1178,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                       if (val === null) return null;
                       return (
                         <circle className={`analysis-point is-${type}`} key={type} r="3.5" cx={xFor(index)} cy={chartY(val, minimum, maximum)}>
-                          <title>{`${row.label} · ${type === "mobile" ? "Mobile" : "Fixed"}: ${formatValue(val, metric)}`}</title>
+                          <title>{`${row.label} · ${t(type === "mobile" ? "Mobile" : "Fixed")}: ${formatValue(val, metric, numberLocale)}`}</title>
                         </circle>
                       );
                     })}
@@ -1183,44 +1186,44 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                   </g>
                 );
               })}
-              <text className="analysis-x-label" textAnchor="middle" x="325" y="244">Periode data</text>
+              <text className="analysis-x-label" textAnchor="middle" x="325" y="244">{t("Periode data")}</text>
             </svg>
             <div className="analysis-legend">
-              <span><i className="is-mobile" />Mobile</span>
-              <span><i className="is-fixed" />Fixed broadband</span>
+              <span><i className="is-mobile" />{t("Mobile")}</span>
+              <span><i className="is-fixed" />{t("Fixed broadband")}</span>
             </div>
           </div>
           <div className="analysis-kpi">
-            <span>Perubahan Mobile, {changeLabel}</span>
+            <span>{t("Perubahan Mobile, {range}", { range: changeLabel })}</span>
             <strong className={periodChange !== null && periodChange < 0 ? "is-negative" : ""}>
               {periodChange === null ? "—" : `${periodChange > 0 ? "+" : ""}${periodChange.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
             </strong>
-            <small>{regionLabel} · {metricLabels[metric].toLocaleLowerCase("id-ID")}</small>
+            <small>{t(regionLabel)} · {t(metricLabels[metric]).toLocaleLowerCase(numberLocale)}</small>
           </div>
-          <div aria-label="Ekspor statistik" className="analysis-statistics-export">
-            <span>EKSPOR STATISTIK</span>
+          <div aria-label={t("Ekspor statistik")} className="analysis-statistics-export">
+            <span>{t("EKSPOR STATISTIK")}</span>
             <div>
-              <button aria-label="Ekspor statistik CSV" className="map-export-button" onClick={handleStatisticsCsvExport} type="button">CSV</button>
-              <button aria-label="Ekspor statistik PNG" className="map-export-button" onClick={() => void handleStatisticsImageExport("png")} type="button">PNG</button>
-              <button aria-label="Ekspor statistik JPEG" className="map-export-button" onClick={() => void handleStatisticsImageExport("jpeg")} type="button">JPG</button>
-              <button aria-label="Ekspor statistik PDF" className="map-export-button" onClick={handleStatisticsPdfExport} type="button">PDF</button>
+              <button aria-label={t("Ekspor statistik CSV")} className="map-export-button" onClick={handleStatisticsCsvExport} type="button">CSV</button>
+              <button aria-label={t("Ekspor statistik PNG")} className="map-export-button" onClick={() => void handleStatisticsImageExport("png")} type="button">PNG</button>
+              <button aria-label={t("Ekspor statistik JPEG")} className="map-export-button" onClick={() => void handleStatisticsImageExport("jpeg")} type="button">JPG</button>
+              <button aria-label={t("Ekspor statistik PDF")} className="map-export-button" onClick={handleStatisticsPdfExport} type="button">PDF</button>
             </div>
           </div>
-          <p className="map-panel-caption">Batas wilayah memakai kotak koordinat dan titik tengah sel, bukan batas administrasi. Perbandingan dibobot jumlah tes; tahun berjalan hanya memakai kuartal yang tersedia.</p>
+          <p className="map-panel-caption">{t("Batas wilayah memakai kotak koordinat dan titik tengah sel, bukan batas administrasi. Perbandingan dibobot jumlah tes; tahun berjalan hanya memakai kuartal yang tersedia.")}</p>
           <div className="map-section-heading analysis-table-heading">
-            <span>PERBANDINGAN {periodMode === "year" ? "TAHUNAN" : "KUARTALAN"} · EKSPOR TABEL</span>
-            <div aria-label="Ekspor tabel" className="analysis-export-actions">
-              <button aria-label="Ekspor analisis CSV" className="map-export-button" onClick={() => downloadCsv(rows, metric, region, periodMode)} type="button">CSV</button>
-              <button aria-label="Ekspor tabel PNG" className="map-export-button" onClick={() => void handleImageExport("png")} type="button">PNG</button>
-              <button aria-label="Ekspor tabel JPEG" className="map-export-button" onClick={() => void handleImageExport("jpeg")} type="button">JPG</button>
-              <button aria-label="Ekspor tabel PDF" className="map-export-button" onClick={handlePdfExport} type="button">PDF</button>
+            <span>{t("PERBANDINGAN {period} · EKSPOR TABEL", { period: t(periodMode === "year" ? "Tahunan" : "Kuartalan").toLocaleUpperCase(numberLocale) })}</span>
+            <div aria-label={t("Ekspor tabel")} className="analysis-export-actions">
+              <button aria-label={t("Ekspor analisis CSV")} className="map-export-button" onClick={() => downloadCsv(rows, metric, region, periodMode)} type="button">CSV</button>
+              <button aria-label={t("Ekspor tabel PNG")} className="map-export-button" onClick={() => void handleImageExport("png")} type="button">PNG</button>
+              <button aria-label={t("Ekspor tabel JPEG")} className="map-export-button" onClick={() => void handleImageExport("jpeg")} type="button">JPG</button>
+              <button aria-label={t("Ekspor tabel PDF")} className="map-export-button" onClick={handlePdfExport} type="button">PDF</button>
             </div>
           </div>
           {exportError && <p className="analysis-export-error" role="status">{exportError}</p>}
           <div className="analysis-table-wrap">
             <table className="analysis-table">
               <thead>
-                <tr><th>Periode</th><th>Mobile</th><th>Fixed</th><th>Selisih M−F</th></tr>
+                <tr><th>{t("Periode")}</th><th>{t("Mobile")}</th><th>{t("Fixed")}</th><th>{t("Selisih M−F")}</th></tr>
               </thead>
               <tbody>
                 {[...rows].reverse().map((r) => {
@@ -1230,19 +1233,19 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                     <tr key={r.key}>
                       <th scope="row">{r.label}</th>
                       <td>
-                        {mob === null ? "—" : <><span>{formatValue(mob, metric)}</span><small>{formatNumber(r.mobile?.tests ?? 0)} tes</small></>}
+                        {mob === null ? "—" : <><span>{formatValue(mob, metric, numberLocale)}</span><small>{formatNumber(r.mobile?.tests ?? 0, numberLocale)} {t("tes")}</small></>}
                       </td>
                       <td>
-                        {fix === null ? "—" : <><span>{formatValue(fix, metric)}</span><small>{formatNumber(r.fixed?.tests ?? 0)} tes</small></>}
+                        {fix === null ? "—" : <><span>{formatValue(fix, metric, numberLocale)}</span><small>{formatNumber(r.fixed?.tests ?? 0, numberLocale)} {t("tes")}</small></>}
                       </td>
-                      <td>{mob === null || fix === null ? "—" : formatValue(mob - fix, metric)}</td>
+                      <td>{mob === null || fix === null ? "—" : formatValue(mob - fix, metric, numberLocale)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <p className="map-panel-footnote">Selisih = Mobile dikurangi Fixed. Data berasal dari arsip lokal Ookla, bukan pengukuran langsung.</p>
+          <p className="map-panel-footnote">{t("Selisih = Mobile dikurangi Fixed. Data berasal dari arsip lokal Ookla, bukan pengukuran langsung.")}</p>
         </div>
       )}
 
@@ -1251,62 +1254,62 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
         <div className="analysis-tab-content">
           <div className="coverage-panel-filters analysis-filters analysis-ranking-filters">
             <label>
-              <span>Periode peringkat</span>
-              <select aria-label="Pilih periode peringkat" onChange={(event) => setRankingPeriod(event.target.value)} value={rankingPeriod}>
+              <span>{t("Periode peringkat")}</span>
+              <select aria-label={t("Pilih periode peringkat")} onChange={(event) => setRankingPeriod(event.target.value)} value={rankingPeriod}>
                 {analysisData.periods.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
               </select>
             </label>
             <label>
-              <span>Jaringan</span>
-              <select aria-label="Pilih jaringan peringkat" onChange={(event) => setRankingNetworkType(event.target.value as "mobile" | "fixed")} value={rankingNetworkType}>
-                <option value="mobile">Mobile</option>
-                <option value="fixed">Fixed broadband</option>
+              <span>{t("Jaringan")}</span>
+              <select aria-label={t("Pilih jaringan peringkat")} onChange={(event) => setRankingNetworkType(event.target.value as "mobile" | "fixed")} value={rankingNetworkType}>
+                <option value="mobile">{t("Mobile")}</option>
+                <option value="fixed">{t("Fixed broadband")}</option>
               </select>
             </label>
             <label>
-              <span>Metrik</span>
-              <select aria-label="Pilih metrik peringkat" onChange={(event) => setRankingMetric(event.target.value as MapMetric)} value={rankingMetric}>
-                {Object.entries(metricLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              <span>{t("Metrik")}</span>
+              <select aria-label={t("Pilih metrik peringkat")} onChange={(event) => setRankingMetric(event.target.value as MapMetric)} value={rankingMetric}>
+                {Object.entries(metricLabels).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
               </select>
             </label>
           </div>
 
           <div className="analysis-national-summary">
             <div>
-              <span>DATA INDONESIA · {analysisData.periods.find((period) => period.value === rankingPeriod)?.label ?? rankingPeriod}</span>
-              <strong>{indonesiaRankingData ? formatValue(indonesiaRankingData.value, rankingMetric) : "Data tidak tersedia"}</strong>
-              <small>Indonesia &amp; sekitar · {rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband"}</small>
+              <span>{t("DATA INDONESIA · {period}", { period: analysisData.periods.find((period) => period.value === rankingPeriod)?.label ?? rankingPeriod })}</span>
+              <strong>{indonesiaRankingData ? formatValue(indonesiaRankingData.value, rankingMetric, numberLocale) : t("Data tidak tersedia")}</strong>
+              <small>{t("Indonesia & sekitar")} · {t(rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband")}</small>
             </div>
             <div>
-              <span>JUMLAH TES</span>
-              <strong>{formatNumber(indonesiaRankingData?.tests ?? 0)}</strong>
-              <small>{formatNumber(indonesiaRankingData?.devices ?? 0)} perangkat</small>
+              <span>{t("JUMLAH TES")}</span>
+              <strong>{formatNumber(indonesiaRankingData?.tests ?? 0, numberLocale)}</strong>
+              <small>{formatNumber(indonesiaRankingData?.devices ?? 0, numberLocale)} {t("perangkat")}</small>
             </div>
           </div>
 
           <div className="map-section-heading analysis-table-heading">
-            <span>PERINGKAT 8 WILAYAH DI INDONESIA</span>
+            <span>{t("PERINGKAT 8 WILAYAH DI INDONESIA")}</span>
             <button
               className="map-export-button"
               onClick={() => downloadLeaderboardCsv(rankingItems, rankingMetric, analysisData.periods.find((period) => period.value === rankingPeriod)?.label ?? rankingPeriod)}
               type="button"
             >
-              <Icon name="download" size={13} /> Ekspor CSV
+              <Icon name="download" size={13} /> {t("Ekspor CSV")}
             </button>
           </div>
           <div className="analysis-table-wrap">
             <table className="analysis-table">
               <thead>
-                <tr><th>Peringkat</th><th>Wilayah</th><th>{metricLabels[rankingMetric]}</th><th>Selisih vs Indonesia</th><th>Tes</th></tr>
+                <tr><th>{t("Peringkat")}</th><th>{t("Wilayah")}</th><th>{t(metricLabels[rankingMetric])}</th><th>{t("Selisih vs Indonesia")}</th><th>{t("Tes")}</th></tr>
               </thead>
               <tbody>
                 {rankingItems.map((item) => (
                   <tr key={item.regionValue}>
                     <td>#{item.rank}</td>
-                    <th scope="row">{item.regionLabel}</th>
-                    <td>{formatValue(item.value, rankingMetric)}</td>
-                    <td>{formatValue(item.diffVsBenchmark, rankingMetric)}</td>
-                    <td>{formatNumber(item.tests)}</td>
+                    <th scope="row">{t(item.regionLabel)}</th>
+                    <td>{formatValue(item.value, rankingMetric, numberLocale)}</td>
+                    <td>{formatValue(item.diffVsBenchmark, rankingMetric, numberLocale)}</td>
+                    <td>{formatNumber(item.tests, numberLocale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1314,9 +1317,9 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           </div>
 
           <div className="map-section-heading analysis-table-heading">
-            <span>GRAFIK KOMPARASI ANTAR-WILAYAH · 2021–2026</span>
+            <span>{t("GRAFIK KOMPARASI ANTAR-WILAYAH · 2021–2026")}</span>
           </div>
-          <p className="map-panel-footnote">Rata-rata metrik per kuartal, dibobot jumlah tes. Batas wilayah merupakan perkiraan; data berasal dari arsip Ookla.</p>
+          <p className="map-panel-footnote">{t("Rata-rata metrik per kuartal, dibobot jumlah tes. Batas wilayah merupakan perkiraan; data berasal dari arsip Ookla.")}</p>
           <div className="ml-region-pills">
             {analysisData.regions.map((item) => {
               const active = activeRegions.includes(item.value);
@@ -1331,21 +1334,21 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                   type="button"
                 >
                   <span className="ml-region-dot" style={{ background: active ? color : "#c8d4ce" }} />
-                  {item.label.replace(" (perkiraan)", "")}
+                  {t(item.label.replace(" (perkiraan)", ""))}
                 </button>
               );
             })}
           </div>
           <div className="analysis-chart-wrap analysis-comparison-chart-wrap">
             <div className="analysis-chart-heading">
-              <strong>{metricLabels[rankingMetric]} · {rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband"}</strong>
+              <strong>{t(metricLabels[rankingMetric])} · {t(rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband")}</strong>
               <span>{rankingMetric === "latency" ? "ms" : "Mbps"}</span>
             </div>
-            <svg aria-label={`Grafik komparasi ${metricLabels[rankingMetric]} antarwilayah 2021 hingga 2026`} className="analysis-chart" role="img" viewBox="0 0 640 230">
+            <svg aria-label={t("Grafik komparasi {metric} antarwilayah 2021 hingga 2026", { metric: t(metricLabels[rankingMetric]) })} className="analysis-chart" role="img" viewBox="0 0 640 230">
               <line className="analysis-grid-line" x1="48" x2="610" y1="20" y2="20" />
               <line className="analysis-grid-line" x1="48" x2="610" y1="175" y2="175" />
-              <text className="analysis-axis-label" textAnchor="end" x="44" y="24">{formatValue(regionalComparison.maximum, rankingMetric)}</text>
-              <text className="analysis-axis-label" textAnchor="end" x="44" y="179">{formatValue(regionalComparison.minimum, rankingMetric)}</text>
+              <text className="analysis-axis-label" textAnchor="end" x="44" y="24">{formatValue(regionalComparison.maximum, rankingMetric, numberLocale)}</text>
+              <text className="analysis-axis-label" textAnchor="end" x="44" y="179">{formatValue(regionalComparison.minimum, rankingMetric, numberLocale)}</text>
               {regionalComparison.series.map((series) => {
                 const points = series.points.map((value, index) => {
                   if (value === null) return "";
@@ -1381,65 +1384,65 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
         <div className="analysis-tab-content">
           <div className="gap-kpi-grid">
             <div className="gap-kpi-card">
-              <span>RASIO UNDUH NASIONAL</span>
+              <span>{t("RASIO UNDUH NASIONAL")}</span>
               <strong>{convergenceData.national ? `${convergenceData.national.ratio.toFixed(1)}x` : "—"}</strong>
-              <small>Fixed Broadband vs Mobile di Indonesia</small>
+              <small>{t("Fixed Broadband vs Mobile di Indonesia")}</small>
             </div>
             <div className="gap-kpi-card">
-              <span>DISPARITAS LATENSI</span>
+              <span>{t("DISPARITAS LATENSI")}</span>
               <strong>{convergenceData.national ? `${convergenceData.national.latencyDiff > 0 ? "+" : ""}${convergenceData.national.latencyDiff.toFixed(1)} ms` : "—"}</strong>
-              <small>Selisih latensi Mobile − Fixed</small>
+              <small>{t("Selisih latensi Mobile − Fixed")}</small>
             </div>
             <div className="gap-kpi-card">
-              <span>WILAYAH PALING TIMPANG</span>
-              <strong>{convergenceData.highestGap?.regionLabel.replace(" (perkiraan)", "")}</strong>
-              <small>Rasio Fixed/Mobile: {convergenceData.highestGap?.ratio.toFixed(1)}x</small>
+              <span>{t("WILAYAH PALING TIMPANG")}</span>
+              <strong>{t(convergenceData.highestGap?.regionLabel.replace(" (perkiraan)", "") ?? "")}</strong>
+              <small>{t("Rasio Fixed/Mobile: {ratio}x", { ratio: convergenceData.highestGap?.ratio.toFixed(1) ?? "—" })}</small>
             </div>
             <div className="gap-kpi-card">
-              <span>WILAYAH PALING BERIMBANG</span>
-              <strong>{convergenceData.lowestGap?.regionLabel.replace(" (perkiraan)", "")}</strong>
-              <small>Rasio Fixed/Mobile: {convergenceData.lowestGap?.ratio.toFixed(1)}x</small>
+              <span>{t("WILAYAH PALING BERIMBANG")}</span>
+              <strong>{t(convergenceData.lowestGap?.regionLabel.replace(" (perkiraan)", "") ?? "")}</strong>
+              <small>{t("Rasio Fixed/Mobile: {ratio}x", { ratio: convergenceData.lowestGap?.ratio.toFixed(1) ?? "—" })}</small>
             </div>
           </div>
 
           <div className="coverage-panel-filters analysis-filters analysis-gap-period-filter">
             <label>
-              <span>Periode kesenjangan</span>
-              <select aria-label="Pilih periode kesenjangan" onChange={(event) => setGapPeriod(event.target.value)} value={gapPeriod}>
+              <span>{t("Periode kesenjangan")}</span>
+              <select aria-label={t("Pilih periode kesenjangan")} onChange={(event) => setGapPeriod(event.target.value)} value={gapPeriod}>
                 {analysisData.periods.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
               </select>
             </label>
           </div>
           <div className="map-section-heading analysis-table-heading">
-            <span>TABEL KESENJANGAN 8 WILAYAH · {convergenceData.periodLabel.toUpperCase()}</span>
+            <span>{t("TABEL KESENJANGAN 8 WILAYAH · {period}", { period: convergenceData.periodLabel.toLocaleUpperCase(numberLocale) })}</span>
             <button
               className="map-export-button"
               onClick={() => downloadConvergenceCsv(convergenceData.items, convergenceData.periodLabel)}
               type="button"
             >
-              <Icon name="download" size={13} /> Ekspor CSV
+              <Icon name="download" size={13} /> {t("Ekspor CSV")}
             </button>
           </div>
           <div className="analysis-table-wrap">
             <table className="analysis-table">
               <thead>
-                <tr><th>Wilayah</th><th>Unduh Mobile</th><th>Unduh Fixed</th><th>Rasio F/M</th><th>Selisih latensi</th><th>Status</th></tr>
+                <tr><th>{t("Wilayah")}</th><th>{t("Unduh Mobile")}</th><th>{t("Unduh Fixed")}</th><th>{t("Rasio F/M")}</th><th>{t("Selisih latensi")}</th><th>{t("Status")}</th></tr>
               </thead>
               <tbody>
                 {convergenceData.items.map((item) => (
                   <tr key={item.regionValue}>
-                    <th scope="row">{item.regionLabel}</th>
-                    <td>{formatValue(item.mobileDownload, "download")}</td>
-                    <td>{formatValue(item.fixedDownload, "download")}</td>
+                    <th scope="row">{t(item.regionLabel)}</th>
+                    <td>{formatValue(item.mobileDownload, "download", numberLocale)}</td>
+                    <td>{formatValue(item.fixedDownload, "download", numberLocale)}</td>
                     <td>{item.ratio.toFixed(1)}x</td>
-                    <td>{formatValue(item.latencyDiff, "latency")}</td>
-                    <td><span className="gap-status-pill" style={{ color: item.statusColor, background: item.statusBg }}>{item.status}</span></td>
+                    <td>{formatValue(item.latencyDiff, "latency", numberLocale)}</td>
+                    <td><span className="gap-status-pill" style={{ color: item.statusColor, background: item.statusBg }}>{t(item.status)}</span></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="map-panel-footnote">Rasio unduh adalah kecepatan Fixed dibagi Mobile; rasio lebih tinggi menunjukkan disparitas lebih besar. Data berasal dari arsip Ookla.</p>
+          <p className="map-panel-footnote">{t("Rasio unduh adalah kecepatan Fixed dibagi Mobile; rasio lebih tinggi menunjukkan disparitas lebih besar. Data berasal dari arsip Ookla.")}</p>
         </div>
       )}
 
@@ -1497,17 +1500,17 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             {/* --- Kontrol Bersama --- */}
             <div className="coverage-panel-filters analysis-filters">
               <label>
-                <span>Jaringan</span>
+                <span>{t("Jaringan")}</span>
                 <select onChange={(e) => setVisNetworkType(e.target.value as "mobile" | "fixed")} value={visNetworkType}>
-                  <option value="mobile">Mobile</option>
-                  <option value="fixed">Fixed broadband</option>
+                  <option value="mobile">{t("Mobile")}</option>
+                  <option value="fixed">{t("Fixed broadband")}</option>
                 </select>
               </label>
               <label>
-                <span>Metrik</span>
+                <span>{t("Metrik")}</span>
                 <select onChange={(e) => setVisMetric(e.target.value as MapMetric)} value={visMetric}>
                   {Object.entries(metricLabels).map(([val, lbl]) => (
-                    <option key={val} value={val}>{lbl}</option>
+                    <option key={val} value={val}>{t(lbl)}</option>
                   ))}
                 </select>
               </label>
@@ -1517,8 +1520,8 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
               <div className="vis-section">
                 <div className="vis-section-header">
                   <div>
-                    <strong>Wilayah yang dibandingkan</strong>
-                    <p>Pilih wilayah untuk menyaring perubahan YoY.</p>
+                    <strong>{t("Jaringan yang dibandingkan")}</strong>
+                    <p>{t("Pilih wilayah untuk menyaring perubahan YoY.")}</p>
                   </div>
                 </div>
                 <div className="ml-region-pills">
@@ -1534,7 +1537,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                         type="button"
                       >
                         <span className="ml-region-dot" style={{ background: active ? regionColors[reg.value] : "#c8d4ce" }} />
-                        {reg.label.replace(" (perkiraan)", "")}
+                        {t(reg.label.replace(" (perkiraan)", ""))}
                       </button>
                     );
                   })}
@@ -1542,8 +1545,8 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
 
                 <div className="vis-section-header">
                   <div>
-                    <strong>Perubahan YoY per Wilayah</strong>
-                    <p>Perubahan {metricLabels[visMetric]} ({metricUnit}) dari <span className="vis-period-chip">{priorLabel}</span> ke <span className="vis-period-chip">{latestLabel}</span></p>
+                    <strong>{t("Perubahan YoY per Wilayah")}</strong>
+                    <p>{t("Perubahan {metric} ({unit}) dari", { metric: t(metricLabels[visMetric]), unit: metricUnit })} <span className="vis-period-chip">{priorLabel}</span> {t("ke")} <span className="vis-period-chip">{latestLabel}</span></p>
                   </div>
                 </div>
                 <div className="delta-heatmap-grid">
@@ -1595,26 +1598,26 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                   })}
                 </div>
                 <p className="map-panel-footnote">
-                  Positif (hijau) = peningkatan kecepatan / penurunan latensi. Negatif (merah) = penurunan.
-                  Perbandingan {priorLabel} → {latestLabel} ({visNetworkType === "mobile" ? "Mobile" : "Fixed"}).
+                  {t("Positif (hijau) = peningkatan kecepatan / penurunan latensi. Negatif (merah) = penurunan.")}
+                  {" "}{t("Perbandingan {from} → {to} ({network}).", { from: priorLabel, to: latestLabel, network: t(visNetworkType === "mobile" ? "Mobile" : "Fixed") })}
                 </p>
 
                 <div className="vis-section-header">
                   <div>
-                    <strong>Peringkat Akselerasi &amp; Pertumbuhan Wilayah</strong>
-                    <p>Perbandingan pertumbuhan untuk {visNetworkType === "mobile" ? "Mobile" : "Fixed broadband"} · {metricLabels[visMetric]}</p>
+                    <strong>{t("Peringkat Akselerasi & Pertumbuhan Wilayah")}</strong>
+                    <p>{t("Pertumbuhan YoY untuk {network} · {metric}", { network: t(visNetworkType === "mobile" ? "Mobile" : "Fixed broadband"), metric: t(metricLabels[visMetric]) })}</p>
                   </div>
                   <button
                     className="map-export-button"
                     onClick={() => downloadGrowthCsv(growthData.items, visMetric, visNetworkType)}
                     type="button"
                   >
-                    <Icon name="download" size={13} /> Ekspor CSV
+                    <Icon name="download" size={13} /> {t("Ekspor CSV")}
                   </button>
                 </div>
                 <div className="gap-kpi-grid">
                   <div className="gap-kpi-card">
-                    <span>PERTUMBUHAN NASIONAL (YoY)</span>
+                    <span>{t("PERTUMBUHAN NASIONAL (YoY)")}</span>
                     <strong>
                       {growthData.national?.yoyPct !== null && growthData.national?.yoyPct !== undefined
                         ? `${growthData.national.yoyPct > 0 ? "+" : ""}${growthData.national.yoyPct.toFixed(1)}%`
@@ -1623,11 +1626,11 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                     <small>{growthData.priorYoYLabel} → {growthData.latestLabel}</small>
                   </div>
                   <div className="gap-kpi-card">
-                    <span>AKSELERASI TERTINGGI (YoY)</span>
-                    <strong>{growthData.topGainer?.regionLabel.replace(" (perkiraan)", "")}</strong>
+                    <span>{t("AKSELERASI TERTINGGI (YoY)")}</span>
+                    <strong>{t(growthData.topGainer?.regionLabel.replace(" (perkiraan)", "") ?? "")}</strong>
                     <small>
                       {growthData.topGainer?.yoyPct !== null && growthData.topGainer?.yoyPct !== undefined
-                        ? `Peningkatan ${growthData.topGainer.yoyPct > 0 ? "+" : ""}${growthData.topGainer.yoyPct.toFixed(1)}% YoY`
+                        ? t("Peningkatan {value}% YoY", { value: `${growthData.topGainer.yoyPct > 0 ? "+" : ""}${growthData.topGainer.yoyPct.toFixed(1)}` })
                         : "—"}
                     </small>
                   </div>
@@ -1636,13 +1639,13 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                   <table className="analysis-table">
                     <thead>
                       <tr>
-                        <th>No</th>
-                        <th>Wilayah</th>
-                        <th>Nilai Terkini</th>
-                        <th>1 Thn Lalu</th>
-                        <th>YoY (%)</th>
-                        <th>QoQ (%)</th>
-                        <th>5 Tahun (%)</th>
+                        <th>{t("No")}</th>
+                        <th>{t("Wilayah")}</th>
+                        <th>{t("Nilai Terkini")}</th>
+                        <th>{t("1 Thn Lalu")}</th>
+                        <th>{t("YoY (%)")}</th>
+                        <th>{t("QoQ (%)")}</th>
+                        <th>{t("5 Tahun (%)")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1654,9 +1657,9 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                         return (
                           <tr key={item.regionValue}>
                             <td>#{item.rank}</td>
-                            <th scope="row"><strong>{item.regionLabel}</strong></th>
-                            <td>{formatValue(item.currentValue, visMetric)}</td>
-                            <td>{item.priorYoYValue !== null ? formatValue(item.priorYoYValue, visMetric) : "—"}</td>
+                            <th scope="row"><strong>{t(item.regionLabel)}</strong></th>
+                            <td>{formatValue(item.currentValue, visMetric, numberLocale)}</td>
+                            <td>{item.priorYoYValue !== null ? formatValue(item.priorYoYValue, visMetric, numberLocale) : "—"}</td>
                             <td>
                               {item.yoyPct !== null ? (
                                 <span className={`growth-badge ${yoyPositive ? "is-pos" : "is-neg"}`}>
@@ -1684,7 +1687,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                     </tbody>
                   </table>
                 </div>
-                <p className="map-panel-footnote">YoY = pertumbuhan dibandingkan kuartal yang sama tahun lalu. 5 Tahun = total perubahan sejak Q4 2021 hingga {growthData.latestLabel}.</p>
+                <p className="map-panel-footnote">{t("YoY = pertumbuhan dibandingkan kuartal yang sama tahun lalu. 5 Tahun = total perubahan sejak Q4 2021 hingga {period}.", { period: growthData.latestLabel })}</p>
               </div>
             )}
 

@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import Image from "next/image";
 import Link from "next/link";
 import { formatNumber, regions } from "../lib/network-data";
+import { useLanguage } from "../lib/i18n";
 import ooklaPeriods from "../lib/ookla-periods.json";
 import {
   type OoklaMetadata,
@@ -30,15 +31,15 @@ const panelItems: { value: PanelName; label: string; short: string; icon: IconNa
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
 ];
 
-function metricReading(metric: MapMetric, data: OoklaMetadata | null) {
+function metricReading(metric: MapMetric, data: OoklaMetadata | null, locale = "id-ID") {
   if (!data) return "—";
   if (metric === "download") {
-    return `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
+    return `${(data.avgDownloadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps`;
   }
   if (metric === "upload") {
-    return `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps`;
+    return `${(data.avgUploadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps`;
   }
-  return `${data.avgLatencyMs.toLocaleString("id-ID")} ms`;
+  return `${data.avgLatencyMs.toLocaleString(locale)} ms`;
 }
 
 function downloadMapCsv(data: OoklaData) {
@@ -68,6 +69,8 @@ function downloadMapCsv(data: OoklaData) {
 }
 
 export default function Dashboard() {
+  const { t, locale } = useLanguage();
+  const numberLocale = locale === "en" ? "en-US" : "id-ID";
   const [initialLoading, setInitialLoading] = useState(true);
   const [panel, setPanel] = useState<PanelName | null>("analysis");
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
@@ -123,7 +126,6 @@ export default function Dashboard() {
   const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
   const [fullscreen, setFullscreen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
-  const [announcement, setAnnouncement] = useState("");
   const [regionOpen, setRegionOpen] = useState(false);
   const [regionActive, setRegionActive] = useState(0);
   const regionWrapRef = useRef<HTMLDivElement>(null);
@@ -138,14 +140,14 @@ export default function Dashboard() {
   const updateOoklaMapData = useCallback((data: OoklaData | null) => setLoadedOoklaMapData(data), []);
 
   const suggestions = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("id-ID");
+    const normalized = query.trim().toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID");
     if (!normalized) {
       return regions.slice(0, 6);
     }
     return regions
-      .filter((item) => item.name.toLocaleLowerCase("id-ID").includes(normalized) || item.label.toLocaleLowerCase("id-ID").includes(normalized))
+      .filter((item) => item.name.toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID").includes(normalized) || t(item.label).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID").includes(normalized))
       .slice(0, 6);
-  }, [query]);
+  }, [locale, query, t]);
   useEffect(() => {
     if (/Mac|iPhone|iPad/i.test(navigator.platform)) setShortcutLabel("⌘ K");
   }, []);
@@ -184,15 +186,15 @@ export default function Dashboard() {
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalizedQuery = query.trim().toLocaleLowerCase("id-ID");
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID");
     if (!normalizedQuery) return;
-    const region = regions.find((item) => item.name.toLocaleLowerCase("id-ID").includes(normalizedQuery));
+    const region = regions.find((item) => item.name.toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID").includes(normalizedQuery) || t(item.label).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID").includes(normalizedQuery));
     if (region) {
       focusMap(region);
       setSearchMessage("");
       return;
     }
-    setSearchMessage("Wilayah belum ditemukan. Coba nama wilayah pada daftar peta.");
+    setSearchMessage(t("Wilayah belum ditemukan. Coba nama wilayah pada daftar peta."));
   }
 
   function pickRegion(region: (typeof regions)[number]) {
@@ -266,11 +268,8 @@ export default function Dashboard() {
     if (panel) panelCloseRef.current?.focus();
   }, [panel]);
 
-  // Umumkan perubahan metrik & mode 3D untuk pembaca layar.
-  useEffect(() => {
-    const label = metrics.find((item) => item.value === mapMetric)?.label ?? "";
-    setAnnouncement(`${label} ditampilkan${view3d ? ", tampilan 3D aktif" : ""}.`);
-  }, [mapMetric, view3d]);
+  const metricLabel = t(metrics.find((item) => item.value === mapMetric)?.label ?? "");
+  const announcement = `${metricLabel} ${locale === "en" ? "shown" : "ditampilkan"}${view3d ? `, ${t("Tampilan 3D")} ${locale === "en" ? "on" : "aktif"}` : ""}.`;
 
   // Navigasi panah pada grup metrik (pola radiogroup).
   function handleMetricKeys(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -313,16 +312,16 @@ export default function Dashboard() {
         <div className="map-panel-body">
           <div className="map-control-section">
             <div className="map-section-heading">
-              <span>PERFORMA JARINGAN</span>
+              <span>{t("PERFORMA JARINGAN")}</span>
               <span className="map-source-chip">
                 OOKLA · {(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
               </span>
             </div>
             <div className="ookla-data-selects">
               <label>
-                <span>Jenis jaringan</span>
+                <span>{t("Jenis jaringan")}</span>
                 <select
-                  aria-label="Pilih jenis jaringan Ookla"
+                  aria-label={t("Pilih jenis jaringan Ookla")}
                   onChange={(event) => setOoklaNetworkType(event.target.value as OoklaNetworkType)}
                   value={ooklaNetworkType}
                 >
@@ -331,9 +330,9 @@ export default function Dashboard() {
                 </select>
               </label>
               <label>
-                <span>Periode</span>
+                <span>{t("Periode")}</span>
                 <select
-                  aria-label="Pilih periode data Ookla"
+                  aria-label={t("Pilih periode data Ookla")}
                   onChange={(event) => setOoklaPeriod(event.target.value)}
                   value={ooklaPeriod}
                 >
@@ -344,9 +343,9 @@ export default function Dashboard() {
               </label>
             </div>
             <div className="ookla-period-summary" aria-live="polite">
-              <span>Data yang ditampilkan</span>
+              <span>{t("Data yang ditampilkan")}</span>
               <strong>{ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}</strong>
-              <small>{ooklaSummary ? `${formatNumber(ooklaSummary.tests)} tes · ${formatNumber(ooklaSummary.devices)} perangkat` : "Jumlah tes dimuat bersama data peta"}</small>
+              <small>{ooklaSummary ? `${formatNumber(ooklaSummary.tests, numberLocale)} ${t("tes")} · ${formatNumber(ooklaSummary.devices, numberLocale)} ${t("perangkat")}` : t("Jumlah tes dimuat bersama data peta")}</small>
             </div>
             <button
               className="map-export-button map-data-export"
@@ -355,12 +354,12 @@ export default function Dashboard() {
               type="button"
             >
               <Icon name="download" size={14} />
-              Ekspor {formatNumber(ooklaMapData?.aggregatedCells ?? 0)} sel peta CSV
+              {t("Ekspor {count} sel peta CSV", { count: formatNumber(ooklaMapData?.aggregatedCells ?? 0, numberLocale) })}
             </button>
-            <p className="map-panel-footnote">Ekspor berisi sel quadkey agregat untuk jaringan dan periode terpilih, bukan tes individual.</p>
+            <p className="map-panel-footnote">{t("Ekspor berisi sel quadkey agregat untuk jaringan dan periode terpilih, bukan tes individual.")}</p>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
-              <span><strong>Hasil pengukuran</strong><small>{overlayOn ? `Overlay ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} aktif` : "Overlay disembunyikan"}</small></span>
+              <span><strong>{t("Hasil pengukuran")}</strong><small>{overlayOn ? t("Overlay {network} aktif", { network: (ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID") }) : t("Overlay disembunyikan")}</small></span>
               <i className={`switch-track ${overlayOn ? "is-on" : ""}`} />
             </button>
             <button
@@ -371,17 +370,17 @@ export default function Dashboard() {
             >
               <span className="map-layer-symbol"><Icon name="trending-up" size={17} /></span>
               <span>
-                <strong>Mode Pertumbuhan YoY</strong>
-                <small>{viewMode === "delta" ? `Membandingkan dengan 1 thn lalu (${referencePeriod ? formatOoklaPeriod(referencePeriod) : "—"})` : (hasReferencePeriod ? `Bandingkan dengan ${referencePeriod ? formatOoklaPeriod(referencePeriod) : "—"}` : "Perlu data 1 thn sebelumnya")}</small>
+                <strong>{t("Mode Pertumbuhan YoY")}</strong>
+                <small>{viewMode === "delta" ? t("Membandingkan dengan 1 thn lalu ({period})", { period: referencePeriod ? formatOoklaPeriod(referencePeriod) : "—" }) : (hasReferencePeriod ? t("Bandingkan dengan {period}", { period: referencePeriod ? formatOoklaPeriod(referencePeriod) : "—" }) : t("Perlu data 1 thn sebelumnya"))}</small>
               </span>
               <i className={`switch-track ${viewMode === "delta" ? "is-on" : ""}`} />
             </button>
             <button aria-pressed={view3d} className="map-layer-switch" disabled={!overlayOn} onClick={() => setView3d((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="layers" size={17} /></span>
-              <span><strong>Tampilan 3D</strong><small>{view3d ? "Batang tinggi = jumlah tes, hanya area layar" : "Miringkan peta, tampilkan batang"}</small></span>
+              <span><strong>{t("Tampilan 3D")}</strong><small>{view3d ? t("Batang tinggi = jumlah tes, hanya area layar") : t("Miringkan peta, tampilkan batang")}</small></span>
               <i className={`switch-track ${view3d ? "is-on" : ""}`} />
             </button>
-            <div className="map-option-label">Tampilkan metrik</div>
+            <div className="map-option-label">{t("Tampilkan metrik")}</div>
             <div className="metric-choice-grid">
               {metrics.map((metric) => (
                 <button
@@ -391,20 +390,20 @@ export default function Dashboard() {
                   onClick={() => setMapMetric(metric.value)}
                 >
                   <span>{metric.value === "download" ? "↓" : metric.value === "upload" ? "↑" : "◷"}</span>
-                  <span>{metric.short}<small>{metricReading(metric.value, ooklaSummary)}</small></span>
+                  <span>{t(metric.short)}<small>{metricReading(metric.value, ooklaSummary, numberLocale)}</small></span>
                 </button>
               ))}
             </div>
-            <p className="map-option-hint">Titik menandai sel ukur; halo warna membantu menghubungkan hasil di area berdekatan. Klik titik untuk detail.</p>
+            <p className="map-option-hint">{t("Titik menandai sel ukur; halo warna membantu menghubungkan hasil di area berdekatan. Klik titik untuk detail.")}</p>
           </div>
 
           <div className="map-control-section">
-            <div className="map-section-heading"><span>PETA DASAR</span></div>
+            <div className="map-section-heading"><span>{t("PETA DASAR")}</span></div>
             <div className="basemap-choices">
               {([
-                { value: "voyager", label: "Nusantara", description: "Jalan & wilayah" },
-                { value: "light", label: "Terang", description: "OpenStreetMap" },
-                { value: "dark", label: "Gelap", description: "Kontras rendah cahaya" },
+                { value: "voyager", label: t("Nusantara"), description: t("Jalan & wilayah") },
+                { value: "light", label: t("Terang"), description: "OpenStreetMap" },
+                { value: "dark", label: t("Gelap"), description: t("Kontras rendah cahaya") },
               ] as const).map((item) => (
                 <button
                   aria-pressed={basemap === item.value}
@@ -468,8 +467,8 @@ export default function Dashboard() {
       />
 
       <header className="map-topbar">
-        <h1 className="sr-only">SinyalNusa: eksplorasi kualitas jaringan Indonesia</h1>
-        <Link aria-label="SinyalNusa, peta kualitas jaringan" className="map-brand-plate" href="/">
+        <h1 className="sr-only">{t("SinyalNusa: eksplorasi kualitas jaringan Indonesia")}</h1>
+        <Link aria-label={t("SinyalNusa, peta kualitas jaringan")} className="map-brand-plate" href="/">
           <Image
             alt=""
             className="map-brand-logo"
@@ -486,30 +485,30 @@ export default function Dashboard() {
             aria-autocomplete="list"
             aria-controls="search-listbox"
             aria-expanded={searchFocused && suggestionCount > 0}
-            aria-label="Cari wilayah atau provinsi"
+            aria-label={t("Cari wilayah atau provinsi")}
             autoComplete="off"
             onBlur={() => { setSearchFocused(false); setActiveSuggestion(-1); }}
             onChange={(event) => { setQuery(event.target.value); setSearchMessage(""); setActiveSuggestion(-1); }}
             onFocus={() => setSearchFocused(true)}
             onKeyDown={handleSearchKeys}
             role="combobox"
-            placeholder="Cari wilayah atau provinsi"
+            placeholder={t("Cari wilayah atau provinsi")}
             ref={searchRef}
             value={query}
           />
           {query && (
-            <button aria-label="Hapus pencarian" className="map-search-clear" onClick={() => { setQuery(""); setSearchMessage(""); searchRef.current?.focus(); }} onMouseDown={(event) => event.preventDefault()} type="button">
+            <button aria-label={t("Hapus pencarian")} className="map-search-clear" onClick={() => { setQuery(""); setSearchMessage(""); searchRef.current?.focus(); }} onMouseDown={(event) => event.preventDefault()} type="button">
               <Icon name="close" size={14} />
             </button>
           )}
           <kbd>{shortcutLabel}</kbd>
           {searchFocused && suggestions.length > 0 && (
-            <div className="map-search-results" id="search-listbox" onMouseDown={(event) => event.preventDefault()} role="listbox" aria-label="Saran pencarian">
-              <div className="map-search-heading" role="presentation">{query.trim() ? "WILAYAH PETA" : "LONCAT KE WILAYAH"}</div>
+            <div className="map-search-results" id="search-listbox" onMouseDown={(event) => event.preventDefault()} role="listbox" aria-label={t("Saran pencarian")}>
+              <div className="map-search-heading" role="presentation">{query.trim() ? t("WILAYAH PETA") : t("LONCAT KE WILAYAH")}</div>
               {suggestions.map((region, i) => (
                 <button aria-selected={activeSuggestion === i} className={`map-search-item ${activeSuggestion === i ? "is-active" : ""}`} id={`search-option-${i}`} key={region.name} onClick={() => pickRegion(region)} role="option" tabIndex={-1} type="button">
                   <span className="map-search-item-icon"><Icon name="locate" size={15} /></span>
-                  <span><strong>{region.label}</strong><small>Pindahkan peta ke wilayah ini</small></span>
+                  <span><strong>{t(region.label)}</strong><small>{t("Pindahkan peta ke wilayah ini")}</small></span>
                 </button>
               ))}
             </div>
@@ -524,18 +523,18 @@ export default function Dashboard() {
               aria-controls="region-listbox"
               aria-expanded={regionOpen}
               aria-haspopup="listbox"
-              aria-label={`Pilih wilayah peta, saat ini ${currentRegion.label}`}
+              aria-label={t("Pilih wilayah peta, saat ini {region}", { region: t(currentRegion.label) })}
               className="map-region-trigger"
               onClick={() => (regionOpen ? setRegionOpen(false) : openRegionMenu())}
               ref={regionBtnRef}
               type="button"
             >
               <Icon name="globe" size={16} />
-              <span>{currentRegion.label}</span>
+              <span>{t(currentRegion.label)}</span>
               <Icon className={`region-chevron ${regionOpen ? "is-open" : ""}`} name="chevron-down" size={14} />
             </button>
             {regionOpen && (
-              <ul aria-label="Daftar wilayah" className="map-region-menu" id="region-listbox" role="listbox" tabIndex={-1}>
+              <ul aria-label={t("Daftar wilayah")} className="map-region-menu" id="region-listbox" role="listbox" tabIndex={-1}>
                 {regions.map((region, i) => (
                   <li
                     aria-selected={region.name === currentRegion.name}
@@ -546,7 +545,7 @@ export default function Dashboard() {
                     onMouseEnter={() => setRegionActive(i)}
                     role="option"
                   >
-                    <span>{region.label}</span>
+                    <span>{t(region.label)}</span>
                     {region.name === currentRegion.name && (
                       <svg aria-hidden="true" fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" width="16"><path d="m5 12 5 5 9-10" /></svg>
                     )}
@@ -565,18 +564,18 @@ export default function Dashboard() {
             type="button"
           >
             <Icon name="layers" size={16} />
-            <span>Tampilan 3D</span>
+            <span>{t("Tampilan 3D")}</span>
             <i aria-hidden="true" className={`switch-track ${view3d ? "is-on" : ""}`} />
           </button>
           <span className="sr-only" id="view3d-hint">
-            {overlayOn ? "Miringkan peta dan tampilkan batang tinggi sesuai jumlah tes." : "Tidak tersedia karena overlay hasil pengukuran dinonaktifkan."}
+            {overlayOn ? t("Miringkan peta dan tampilkan batang tinggi sesuai jumlah tes.") : t("Tidak tersedia karena overlay hasil pengukuran dinonaktifkan.")}
           </span>
           <span aria-hidden="true" className="map-control-divider" />
-          <div aria-label="Pilih metrik peta" className="map-quick-metrics" onKeyDown={handleMetricKeys} role="radiogroup">
+          <div aria-label={t("Pilih metrik peta")} className="map-quick-metrics" onKeyDown={handleMetricKeys} role="radiogroup">
             {metrics.map((metric, i) => (
               <button
                 aria-checked={mapMetric === metric.value}
-                aria-label={`${metric.label}: rata-rata ${metricReading(metric.value, ooklaSummary)}`}
+                aria-label={`${t(metric.label)}: ${locale === "en" ? "average" : "rata-rata"} ${metricReading(metric.value, ooklaSummary, numberLocale)}`}
                 className={mapMetric === metric.value ? "is-active" : ""}
                 key={metric.value}
                 onClick={() => setMapMetric(metric.value)}
@@ -586,40 +585,40 @@ export default function Dashboard() {
                 title={metric.label}
                 type="button"
               >
-                <span aria-hidden="true">{metric.short}</span>
-                <strong aria-hidden="true">{metricReading(metric.value, ooklaSummary)}</strong>
+                <span aria-hidden="true">{t(metric.short)}</span>
+                <strong aria-hidden="true">{metricReading(metric.value, ooklaSummary, numberLocale)}</strong>
               </button>
             ))}
           </div>
         </div>
       </header>
 
-      <nav aria-label="Kontrol peta" className="map-tool-rail">
+      <nav aria-label={t("Kontrol peta")} className="map-tool-rail">
         {panelItems.map((item) => (
           <button
-            aria-label={item.label}
+            aria-label={t(item.label)}
             aria-controls="map-side-panel"
             aria-expanded={panel === item.value}
             className={panel === item.value ? "is-active" : ""}
             key={item.value}
             onClick={(event) => showPanel(item.value, event.currentTarget)}
-            title={item.label}
+            title={t(item.label)}
             type="button"
           >
             <Icon name={item.icon} size={20} />
-            <span>{item.short}</span>
+            <span>{t(item.short)}</span>
           </button>
         ))}
       </nav>
 
       {panel && (
-        <aside aria-label={activePanelItem?.label ?? "Panel peta"} className="map-side-panel" id="map-side-panel">
+        <aside aria-label={activePanelItem ? t(activePanelItem.label) : t("Panel peta")} className="map-side-panel" id="map-side-panel">
           <div className="map-panel-header">
             <div>
-              <span className="map-panel-kicker">SINYALNUSA / EKSPLORASI</span>
-              <h2>{activePanelItem?.label}</h2>
+              <span className="map-panel-kicker">{t("SINYALNUSA / EKSPLORASI")}</span>
+              <h2>{activePanelItem ? t(activePanelItem.label) : ""}</h2>
             </div>
-            <button aria-label="Tutup panel (Esc)" className="map-panel-close" onClick={closePanel} ref={panelCloseRef} type="button"><Icon name="close" size={17} /></button>
+            <button aria-label={t("Tutup panel (Esc)")} className="map-panel-close" onClick={closePanel} ref={panelCloseRef} type="button"><Icon name="close" size={17} /></button>
           </div>
           {renderPanelContent()}
         </aside>
@@ -641,10 +640,10 @@ export default function Dashboard() {
             src="/SinyalNusa_Gradient_Tech_Logo-removebg.png"
             width={2079}
           />
-          <p>Menyiapkan peta jaringan Indonesia</p>
+          <p>{t("Menyiapkan peta jaringan Indonesia")}</p>
           <span className="dashboard-loading-status">
             <i className="map-loading-spinner" />
-            Memuat peta dasar dan data pengukuran…
+            {t("Memuat peta dasar dan data pengukuran…")}
           </span>
         </div>
       </div>
