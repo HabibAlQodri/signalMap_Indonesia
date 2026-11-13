@@ -17,7 +17,7 @@ import MapView, { type Basemap, type MapMetric, type MapViewMode } from "./mapvi
 import AnalysisPanel from "./analysis-panel";
 import TimeLapsePlayer from "./timelapse-player";
 
-type PanelName = "layers" | "analysis";
+type PanelName = "layers" | "analysis" | "visualization";
 
 const metrics: { value: MapMetric; label: string; short: string }[] = [
   { value: "download", label: "Kecepatan unduh", short: "Unduh" },
@@ -25,7 +25,8 @@ const metrics: { value: MapMetric; label: string; short: string }[] = [
   { value: "latency", label: "Latensi", short: "Latensi" },
 ];
 const panelItems: { value: PanelName; label: string; short: string; icon: IconName }[] = [
-  { value: "analysis", label: "Analisis tren", short: "Analisis", icon: "activity" },
+  { value: "analysis", label: "Analisis data", short: "Analisis", icon: "activity" },
+  { value: "visualization", label: "Visualisasi", short: "Visualisasi", icon: "bar-chart" },
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
 ];
 
@@ -425,6 +426,10 @@ export default function Dashboard() {
 
     if (panel === "analysis") {
       return <AnalysisPanel />;
+    }
+
+    if (panel === "visualization") {
+      return <AnalysisPanel visualizationOnly />;
     }
 
     return null;

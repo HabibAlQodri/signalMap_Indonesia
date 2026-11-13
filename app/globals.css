@@ -1575,7 +1575,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- Sub-Navigation Tabs in AnalysisPanel ---------- */
 .analysis-subnav {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   margin-bottom: 14px;
   border: 1px solid #e1ebe5;
@@ -1589,17 +1589,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 38px;
   border: 0;
   border-radius: 7px;
   background: transparent;
   padding: 0 6px;
   color: #556761;
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
   transition: all .15s ease;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 .analysis-subnav-btn:hover {
   background: #eaf1ed;
@@ -1612,171 +1613,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: 0 2px 6px rgb(20 40 32 / 8%);
 }
 
+.analysis-panel-intro {
+  margin: -4px 0 12px;
+  color: #7a8e87;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 @media (max-width: 700px) {
   .analysis-subnav {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
   }
 }
 
-/* ---------- Leaderboard Cards (Tab 2) ---------- */
-.analysis-section-box {
-  border: 1px solid #e4ede8;
-  border-radius: 12px;
-  background: #fafcfb;
-  padding: 14px;
-  margin-top: 12px;
-}
-
-.analysis-box-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.analysis-box-header strong {
-  display: block;
-  font-size: 13.5px;
-  color: #273933;
-}
-.analysis-box-header p {
-  margin: 2px 0 0;
-  font-size: 11px;
-  color: #72847c;
-}
-
-.leaderboard-list {
-  display: grid;
-  gap: 7px;
-}
-
-.leaderboard-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid #e7eee9;
-  border-radius: 9px;
-  background: #fff;
-  padding: 9px 12px;
-  transition: border-color .15s ease;
-}
-.leaderboard-card:hover {
-  border-color: #bad3c8;
-}
-.leaderboard-card.is-national {
-  background: #f4f8f5;
-  border-color: #c9ded5;
-}
-
-.leaderboard-card-rank {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  flex: 0 0 auto;
-  font-size: 13px;
-  font-weight: 700;
-  color: #485c54;
-}
-
-.leaderboard-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
-.leaderboard-name-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.leaderboard-name-row strong {
-  font-size: 12.5px;
-  color: #293d36;
-}
-.leaderboard-value {
-  font-size: 13px;
-  font-weight: 750;
-  color: #17604d;
-  font-variant-numeric: tabular-nums;
-}
-
-.leaderboard-bar-track {
-  width: 100%;
-  height: 5px;
-  border-radius: 3px;
-  background: #e9f0ec;
-  overflow: hidden;
-}
-.leaderboard-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width .3s ease;
-}
-
-.leaderboard-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 10.5px;
-  color: #798b83;
-}
-.diff-positive {
-  color: #16a085;
-  font-style: normal;
-  font-weight: 600;
-}
-.diff-negative {
-  color: #d65e4d;
-  font-style: normal;
-  font-weight: 600;
-}
-
-/* Chips in Multi-Region comparison */
-.analysis-chip-hint {
-  margin: 8px 0 6px;
-  font-size: 11px;
-  color: #6a7d75;
-}
-.analysis-chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.analysis-region-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid #d9e5df;
-  border-radius: 6px;
-  background: #fff;
-  padding: 4px 8px;
-  font-size: 11px;
-  color: #4f635b;
-  cursor: pointer;
-  transition: all .14s ease;
-}
-.analysis-region-chip:hover {
-  background: #f2f7f4;
-}
-.analysis-region-chip.is-active {
-  background: #eef6f2;
-  font-weight: 650;
-  color: #185c4b;
-}
-.analysis-region-chip span:first-child {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
-/* ---------- Convergence Gap (Tab 3) & Growth (Tab 4) ---------- */
+/* ---------- Convergence Gap & Growth ---------- */
 .gap-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1808,6 +1659,32 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: #7b8e85;
 }
 
+.analysis-period-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.analysis-ranking-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.analysis-gap-period-filter { grid-template-columns: minmax(0, 1fr); }
+.analysis-national-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+.analysis-national-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  border: 1px solid #e3ede8;
+  border-radius: 9px;
+  background: #f7faf8;
+  padding: 9px 11px;
+}
+.analysis-national-summary span { color: #6a7e75; font-size: 9px; font-weight: 650; }
+.analysis-national-summary strong { overflow: hidden; color: #1f5f4d; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-national-summary small { color: #7b8e85; font-size: 9px; }
+.analysis-comparison-chart-wrap { margin-top: 8px; }
+.ml-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 13px; padding: 3px 4px 5px; }
+.ml-chart-legend span { display: inline-flex; align-items: center; gap: 4px; color: #718078; font-size: 9px; }
+.ml-chart-legend i { width: 7px; height: 7px; border-radius: 50%; }
+
 .gap-status-pill {
   display: inline-block;
   padding: 2px 7px;
@@ -1831,4 +1708,156 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .growth-badge.is-neg {
   color: #b91c1c;
   background: #fee2e2;
+}
+
+
+/* =====================================================================
+   VISUALISASI — Trend & Regional Comparison
+   ===================================================================== */
+
+/* --- Sub-nav dalam tab Visualisasi --- */
+.vis-subnav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0 10px;
+}
+.vis-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid #dde8e4;
+  border-radius: 8px;
+  background: #f6faf8;
+  padding: 4px 8px;
+  color: #5a7068;
+  font-size: 11px;
+  font-weight: 580;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  text-align: center;
+}
+.vis-subnav-btn:hover { border-color: #aaccc0; background: #eef5f2; color: #1e6e55; }
+.vis-subnav-btn.is-active {
+  border-color: #1a9070;
+  background: #e8f5f1;
+  color: #1a7a60;
+  font-weight: 650;
+}
+
+/* --- Shared Section Wrapper --- */
+.vis-section { margin-top: 4px; }
+.vis-section-header { margin-bottom: 10px; }
+.vis-section-header strong { display: block; color: #2d4740; font-size: 12px; font-weight: 660; }
+.vis-section-header p { margin: 3px 0 0; color: #7a8e87; font-size: 10px; }
+.vis-period-chip {
+  display: inline-block;
+  border: 1px solid #c8ddd7;
+  border-radius: 4px;
+  background: #f0f7f4;
+  padding: 0 5px;
+  color: #2a6050;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ===== DELTA HEATMAP ===== */
+.delta-heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.delta-heatmap-card {
+  border: 1px solid #e4ece8;
+  border-radius: 10px;
+  padding: 10px 11px 8px;
+  transition: border-color .15s;
+}
+.delta-heatmap-card:hover { border-color: #9ec9bb; }
+.delta-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.delta-card-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+.delta-card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #3a4f47;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.delta-card-badge {
+  flex: 0 0 auto;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 680;
+}
+.delta-card-badge.is-pos { color: #0f6e4a; background: #d1fae5; }
+.delta-card-badge.is-neg { color: #991b1b; background: #fee2e2; }
+
+.delta-bar-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8ede9;
+  margin-bottom: 6px;
+}
+.delta-bar-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+.delta-card-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: #7f9088;
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== MULTI-LINE CHART ===== */
+.ml-region-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.ml-region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  border: 1px solid #dde8e4;
+  border-radius: 999px;
+  background: #f6faf8;
+  padding: 0 9px;
+  color: #5a7068;
+  font-size: 10.5px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, opacity .15s;
+}
+.ml-region-pill:not(.is-active) { opacity: .6; }
+.ml-region-pill.is-active { font-weight: 640; opacity: 1; }
+.ml-region-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
 }

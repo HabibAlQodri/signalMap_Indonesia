@@ -7,7 +7,6 @@ import { formatNumber } from "../lib/network-data";
 import type { MapMetric } from "./mapview";
 import Icon from "./icon";
 
-type AnalysisEntry = (typeof analysisData.entries)[number];
 type PeriodMode = "year" | "quarter";
 type ChartMode = "performance" | "tests";
 type AnalysisValue = {
@@ -27,12 +26,6 @@ function metricValue(entry: AnalysisValue, metric: MapMetric) {
   if (metric === "download") return entry.avgDownloadKbps;
   if (metric === "upload") return entry.avgUploadKbps;
   return entry.avgLatencyMs;
-}
-
-function weightedMetricValue(entries: AnalysisEntry[], metric: MapMetric) {
-  const totalTests = entries.reduce((sum, entry) => sum + entry.tests, 0);
-  if (!totalTests) return null;
-  return entries.reduce((sum, entry) => sum + metricValue(entry, metric) * entry.tests, 0) / totalTests;
 }
 
 function formatValue(value: number, metric: MapMetric) {
@@ -566,7 +559,7 @@ function exportStatisticsPdf(
   downloadBlob(document.output("blob"), `ookla-statistik-${periodMode}-${metric}.pdf`);
 }
 
-type AnalysisTab = "trend" | "multi-region" | "gap" | "growth";
+type AnalysisTab = "ranking" | "gap";
 
 type AnalysisRow = {
   key: string;
@@ -587,39 +580,7 @@ const regionColors: Record<string, string> = {
   maluku: "#db2777",
   papua: "#dc2626",
 };
-
-function downloadLeaderboardCsv(
-  items: {
-    rank: number;
-    regionLabel: string;
-    value: number;
-    diffVsBenchmark: number;
-    tests: number;
-    devices: number;
-  }[],
-  metric: MapMetric,
-  networkType: "mobile" | "fixed",
-  periodLabel: string
-) {
-  const metricUnit = metric === "latency" ? "ms" : "Mbps";
-  const content = [
-    ["Peringkat Performa Wilayah Ookla"],
-    ["Periode", periodLabel],
-    ["Jenis Jaringan", networkType === "mobile" ? "Mobile" : "Fixed broadband"],
-    ["Metrik", `${metricLabels[metric]} (${metricUnit})`],
-    [],
-    ["Peringkat", "Wilayah", `Nilai (${metricUnit})`, `Selisih vs Nasional (${metricUnit})`, "Jumlah Tes", "Jumlah Perangkat"],
-    ...items.map((item) => [
-      item.rank,
-      item.regionLabel,
-      metric === "latency" ? item.value.toFixed(1) : (item.value / 1000).toFixed(2),
-      metric === "latency" ? item.diffVsBenchmark.toFixed(1) : (item.diffVsBenchmark / 1000).toFixed(2),
-      item.tests,
-      item.devices,
-    ]),
-  ].map((row) => row.map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
-  downloadBlob(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }), `ookla-peringkat-${networkType}-${metric}.csv`);
-}
+const analysisYears = [...new Set(analysisData.entries.map((entry) => entry.year))].sort((a, b) => a - b);
 
 function downloadConvergenceCsv(
   items: {
@@ -651,6 +612,37 @@ function downloadConvergenceCsv(
     ]),
   ].map((row) => row.map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   downloadBlob(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }), `ookla-kesenjangan-konvergensi.csv`);
+}
+
+function downloadLeaderboardCsv(
+  items: {
+    rank: number;
+    regionLabel: string;
+    value: number;
+    diffVsBenchmark: number;
+    tests: number;
+    devices: number;
+  }[],
+  metric: MapMetric,
+  periodLabel: string
+) {
+  const metricUnit = metric === "latency" ? "ms" : "Mbps";
+  const content = [
+    ["Peringkat Performa Wilayah Ookla"],
+    ["Periode", periodLabel],
+    ["Metrik", `${metricLabels[metric]} (${metricUnit})`],
+    [],
+    ["Peringkat", "Wilayah", `Nilai (${metricUnit})`, `Selisih vs Indonesia (${metricUnit})`, "Jumlah Tes", "Jumlah Perangkat"],
+    ...items.map((item) => [
+      item.rank,
+      item.regionLabel,
+      metric === "latency" ? item.value.toFixed(1) : (item.value / 1000).toFixed(2),
+      metric === "latency" ? item.diffVsBenchmark.toFixed(1) : (item.diffVsBenchmark / 1000).toFixed(2),
+      item.tests,
+      item.devices,
+    ]),
+  ].map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  downloadBlob(new Blob(["\uFEFF", content], { type: "text/csv;charset=utf-8" }), `ookla-peringkat-${metric}.csv`);
 }
 
 function downloadGrowthCsv(
@@ -691,30 +683,34 @@ function chartY(value: number, minimum: number, maximum: number) {
   return 18 + ((maximum - value) / span) * 180;
 }
 
-export default function AnalysisPanel() {
-  const [activeTab, setActiveTab] = useState<AnalysisTab>("trend");
+export default function AnalysisPanel({ visualizationOnly = false }: { visualizationOnly?: boolean }) {
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("ranking");
 
   // Tab 1: Tren Wilayah
   const [metric, setMetric] = useState<MapMetric>("download");
   const [region, setRegion] = useState("indonesia-sekitarnya");
   const [periodMode, setPeriodMode] = useState<PeriodMode>("year");
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedQuarter, setSelectedQuarter] = useState("all");
   const [chartMode, setChartMode] = useState<ChartMode>("performance");
   const [exportError, setExportError] = useState("");
 
-  // Tab 2: Peringkat & Komparasi Multi-Wilayah
-  const [mrMetric, setMrMetric] = useState<MapMetric>("download");
-  const [mrNetworkType, setMrNetworkType] = useState<"mobile" | "fixed">("mobile");
-  const [mrPeriod, setMrPeriod] = useState(analysisData.latestPeriod);
-  const [activeRegions, setActiveRegions] = useState<string[]>(
-    analysisData.regions.map((r) => r.value)
-  );
+  // Tab 2: Peringkat & Komparasi
+  const [rankingMetric, setRankingMetric] = useState<MapMetric>("download");
+  const [rankingNetworkType, setRankingNetworkType] = useState<"mobile" | "fixed">("mobile");
+  const [rankingPeriod, setRankingPeriod] = useState(analysisData.latestPeriod);
+  const [activeRegions, setActiveRegions] = useState<string[]>(analysisData.regions.map((item) => item.value));
 
   // Tab 3: Kesenjangan Mobile vs Fixed
   const [gapPeriod, setGapPeriod] = useState(analysisData.latestPeriod);
 
-  // Tab 4: Pertumbuhan
-  const [growthMetric, setGrowthMetric] = useState<MapMetric>("download");
-  const [growthNetworkType, setGrowthNetworkType] = useState<"mobile" | "fixed">("mobile");
+  // Visualisasi
+  const [visMetric, setVisMetric] = useState<MapMetric>("download");
+  const [visNetworkType, setVisNetworkType] = useState<"mobile" | "fixed">("mobile");
+  const [visTab, setVisTab] = useState<"trend" | "compare">("compare");
+  const [mlSelectedRegions, setMlSelectedRegions] = useState<string[]>(
+    analysisData.regions.map((r) => r.value)
+  );
 
   // --- Logic Tab 1: Tren Wilayah ---
   const rows = useMemo(() => {
@@ -726,6 +722,8 @@ export default function AnalysisPanel() {
     }>();
     for (const entry of analysisData.entries) {
       if (entry.region !== region) continue;
+      if (selectedYear !== "all" && entry.year !== Number(selectedYear)) continue;
+      if (periodMode === "quarter" && selectedQuarter !== "all" && entry.quarter !== Number(selectedQuarter)) continue;
       const key = periodMode === "year" ? String(entry.year) : entry.period;
       let row = grouped.get(key);
       if (!row) {
@@ -762,7 +760,7 @@ export default function AnalysisPanel() {
         fixed: finish(row.fixed),
       };
     }).sort((a, b) => a.year - b.year || (a.quarter ?? 0) - (b.quarter ?? 0));
-  }, [periodMode, region]);
+  }, [periodMode, region, selectedQuarter, selectedYear]);
 
   const chartSeries = rows.flatMap((row) => [
     ...(row.mobile ? [{ key: row.key, label: row.label, type: "mobile" as const, value: metricValue(row.mobile, metric) }] : []),
@@ -783,37 +781,20 @@ export default function AnalysisPanel() {
     .filter((point): point is string => point !== null)
     .join(" ");
 
-  const latestPeriodValue = analysisData.latestPeriod;
-  const latestPeriod = analysisData.periods.find((p) => p.value === latestPeriodValue)?.label ?? "—";
   const regionLabel = analysisData.regions.find((item) => item.value === region)?.label ?? region;
-  const latestEntries = analysisData.entries.filter((entry) => entry.region === region && entry.period === latestPeriodValue);
-  const latestEntry = latestEntries[0];
-  const latestMobileTests = latestEntries.find((entry) => entry.networkType === "mobile")?.tests ?? 0;
-  const latestFixedTests = latestEntries.find((entry) => entry.networkType === "fixed")?.tests ?? 0;
-  const latestYear = latestEntry?.year;
-  const latestQuarter = latestEntry?.quarter;
-  const latestMobileEntries = analysisData.entries.filter((entry) =>
-    entry.region === region &&
-    entry.networkType === "mobile" &&
-    (periodMode === "year"
-      ? entry.year === latestYear && entry.quarter <= (latestQuarter ?? 0)
-      : entry.period === analysisData.latestPeriod),
-  );
-  const previousMobileEntries = analysisData.entries.filter((entry) =>
-    entry.region === region &&
-    entry.networkType === "mobile" &&
-    (periodMode === "year"
-      ? entry.year === (latestYear ?? 0) - 1 && entry.quarter <= (latestQuarter ?? 0)
-      : entry.year === (latestYear ?? 0) - 1 && entry.quarter === latestQuarter),
-  );
-  const latestMobile = weightedMetricValue(latestMobileEntries, metric);
-  const previousMobile = weightedMetricValue(previousMobileEntries, metric);
+  const latestTrendRow = rows[rows.length - 1];
+  const previousTrendRow = rows[rows.length - 2];
+  const latestPeriod = latestTrendRow?.label ?? "—";
+  const latestMobileTests = latestTrendRow?.mobile?.tests ?? 0;
+  const latestFixedTests = latestTrendRow?.fixed?.tests ?? 0;
+  const latestMobile = latestTrendRow?.mobile ? metricValue(latestTrendRow.mobile, metric) : null;
+  const previousMobile = previousTrendRow?.mobile ? metricValue(previousTrendRow.mobile, metric) : null;
   const periodChange = latestMobile !== null && previousMobile !== null && previousMobile !== 0
     ? ((latestMobile - previousMobile) / previousMobile) * 100
     : null;
-  const changeLabel = periodMode === "year"
-    ? `Q1–Q${latestQuarter ?? "?"} ${Number(latestYear) - 1} → ${latestYear}`
-    : `Q${latestQuarter ?? "?"} ${Number(latestYear) - 1} → ${latestYear}`;
+  const changeLabel = previousTrendRow
+    ? `${previousTrendRow.label} → ${latestPeriod}`
+    : "Belum ada periode pembanding";
 
   async function handleStatisticsImageExport(format: "png" | "jpeg") {
     setExportError("");
@@ -869,77 +850,60 @@ export default function AnalysisPanel() {
     }
   }
 
-  // --- Logic Tab 2: Leaderboard & Multi-Region ---
-  const leaderboardItems = useMemo(() => {
+  const rankingItems = useMemo(() => {
     const periodEntries = analysisData.entries.filter(
-      (e) => e.period === mrPeriod && e.networkType === mrNetworkType
+      (entry) => entry.period === rankingPeriod && entry.networkType === rankingNetworkType
     );
-    const benchmarkEntry = periodEntries.find((e) => e.region === "indonesia-sekitarnya");
-    const benchmarkVal = benchmarkEntry ? metricValue(benchmarkEntry, mrMetric) : 0;
-
-    const parsed = periodEntries.map((e) => {
-      const reg = analysisData.regions.find((r) => r.value === e.region);
-      const val = metricValue(e, mrMetric);
-      const diff = val - benchmarkVal;
+    const indonesia = periodEntries.find((entry) => entry.region === "indonesia-sekitarnya");
+    const benchmarkValue = indonesia ? metricValue(indonesia, rankingMetric) : 0;
+    const items = periodEntries.map((entry) => {
+      const regionInfo = analysisData.regions.find((item) => item.value === entry.region);
       return {
-        regionValue: e.region,
-        regionLabel: reg?.label ?? e.region,
-        value: val,
-        diffVsBenchmark: diff,
-        tests: e.tests,
-        devices: e.devices,
+        regionValue: entry.region,
+        regionLabel: regionInfo?.label ?? entry.region,
+        value: metricValue(entry, rankingMetric),
+        diffVsBenchmark: metricValue(entry, rankingMetric) - benchmarkValue,
+        tests: entry.tests,
+        devices: entry.devices,
       };
     });
+    items.sort((a, b) => rankingMetric === "latency" ? a.value - b.value : b.value - a.value);
+    return items.map((item, index) => ({ ...item, rank: index + 1 }));
+  }, [rankingMetric, rankingNetworkType, rankingPeriod]);
 
-    if (mrMetric === "latency") {
-      parsed.sort((a, b) => a.value - b.value);
-    } else {
-      parsed.sort((a, b) => b.value - a.value);
-    }
+  const indonesiaRankingData = rankingItems.find((item) => item.regionValue === "indonesia-sekitarnya");
 
-    return parsed.map((item, idx) => ({ ...item, rank: idx + 1 }));
-  }, [mrPeriod, mrNetworkType, mrMetric]);
-
-  const maxLeaderboardVal = useMemo(() => {
-    const vals = leaderboardItems.map((i) => i.value);
-    return Math.max(...vals, 1);
-  }, [leaderboardItems]);
-
-  const multiRegionTimeline = useMemo(() => {
-    const allChronologicalPeriods = [...analysisData.periods].reverse();
-    const periodKeys = allChronologicalPeriods.map((p) => p.value);
-
-    const regionSeries = analysisData.regions.map((reg) => {
-      const points = periodKeys.map((pKey) => {
-        const found = analysisData.entries.find(
-          (e) => e.region === reg.value && e.period === pKey && e.networkType === mrNetworkType
-        );
-        return found ? metricValue(found, mrMetric) : null;
-      });
-      return {
-        regionValue: reg.value,
-        regionLabel: reg.label,
-        color: regionColors[reg.value] || "#475569",
-        points,
-      };
-    });
-
-    const activeSeries = regionSeries.filter((s) => activeRegions.includes(s.regionValue));
-    const allNums = activeSeries.flatMap((s) => s.points.filter((v): v is number => v !== null));
-    const minVal = allNums.length ? Math.min(...allNums) : 0;
-    const maxVal = allNums.length ? Math.max(...allNums) : 1;
-
+  const regionalComparison = useMemo(() => {
+    const periods = [...analysisData.periods].reverse();
+    const series = analysisData.regions
+      .filter((item) => activeRegions.includes(item.value))
+      .map((item) => ({
+        value: item.value,
+        label: item.label.replace(" (perkiraan)", ""),
+        color: regionColors[item.value] ?? "#475569",
+        points: periods.map((period) => {
+          const entry = analysisData.entries.find(
+            (candidate) => candidate.region === item.value &&
+              candidate.period === period.value &&
+              candidate.networkType === rankingNetworkType
+          );
+          return entry ? metricValue(entry, rankingMetric) : null;
+        }),
+      }));
+    const values = series.flatMap((item) => item.points.filter((value): value is number => value !== null));
     return {
-      periods: allChronologicalPeriods,
-      series: activeSeries,
-      minVal,
-      maxVal,
+      periods,
+      series,
+      minimum: values.length ? Math.min(...values) : 0,
+      maximum: values.length ? Math.max(...values) : 1,
     };
-  }, [mrNetworkType, mrMetric, activeRegions]);
+  }, [activeRegions, rankingMetric, rankingNetworkType]);
 
-  function toggleRegionActive(regVal: string) {
-    setActiveRegions((curr) =>
-      curr.includes(regVal) ? (curr.length > 1 ? curr.filter((v) => v !== regVal) : curr) : [...curr, regVal]
+  function toggleRankingRegion(value: string) {
+    setActiveRegions((current) =>
+      current.includes(value)
+        ? current.length > 1 ? current.filter((regionValue) => regionValue !== value) : current
+        : [...current, value]
     );
   }
 
@@ -992,26 +956,10 @@ export default function AnalysisPanel() {
     const highestGap = sortedByRatio[0];
     const lowestGap = sortedByRatio[sortedByRatio.length - 1];
 
-    // Tren Rasio Nasional dari waktu ke waktu
-    const chronological = [...analysisData.periods].reverse();
-    const ratioTrend = chronological.map((p) => {
-      const mob = analysisData.entries.find((e) => e.region === "indonesia-sekitarnya" && e.period === p.value && e.networkType === "mobile");
-      const fix = analysisData.entries.find((e) => e.region === "indonesia-sekitarnya" && e.period === p.value && e.networkType === "fixed");
-      const r = mob && fix && mob.avgDownloadKbps > 0 ? fix.avgDownloadKbps / mob.avgDownloadKbps : 0;
-      return { period: p.value, label: p.label, ratio: r };
-    });
-
-    return {
-      periodLabel,
-      items,
-      national,
-      highestGap,
-      lowestGap,
-      ratioTrend,
-    };
+    return { periodLabel, items, national, highestGap, lowestGap };
   }, [gapPeriod]);
 
-  // --- Logic Tab 4: Pertumbuhan (Growth YoY & QoQ) ---
+  // --- Logic Visualisasi: Pertumbuhan YoY, QoQ, dan 5 Tahun ---
   const growthData = useMemo(() => {
     const latest = analysisData.latestPeriod;
     const [y, m, d] = latest.split("-").map(Number);
@@ -1024,8 +972,8 @@ export default function AnalysisPanel() {
     const items = analysisData.regions.map((reg) => {
       const getVal = (p: string | null) => {
         if (!p) return null;
-        const e = analysisData.entries.find((entry) => entry.region === reg.value && entry.period === p && entry.networkType === growthNetworkType);
-        return e ? metricValue(e, growthMetric) : null;
+        const e = analysisData.entries.find((entry) => entry.region === reg.value && entry.period === p && entry.networkType === visNetworkType);
+        return e ? metricValue(e, visMetric) : null;
       };
 
       const currVal = getVal(latest) ?? 0;
@@ -1035,7 +983,7 @@ export default function AnalysisPanel() {
 
       const calcPct = (curr: number, prev: number | null) => {
         if (prev === null || prev <= 0) return null;
-        if (growthMetric === "latency") {
+        if (visMetric === "latency") {
           return ((prev - curr) / prev) * 100;
         }
         return ((curr - prev) / prev) * 100;
@@ -1064,31 +1012,20 @@ export default function AnalysisPanel() {
       latestLabel: analysisData.periods.find((p) => p.value === latest)?.label ?? latest,
       priorYoYLabel: analysisData.periods.find((p) => p.value === yoyPrior)?.label ?? yoyPrior,
     };
-  }, [growthNetworkType, growthMetric]);
+  }, [visNetworkType, visMetric]);
 
   return (
     <div className="map-panel-body analysis-panel">
-      {/* Sub-Navigation Tabs */}
-      <div className="analysis-subnav" role="tablist" aria-label="Kategori Analisis">
+      {!visualizationOnly && <div className="analysis-subnav" role="tablist" aria-label="Kategori Analisis">
         <button
           role="tab"
-          aria-selected={activeTab === "trend"}
-          className={`analysis-subnav-btn ${activeTab === "trend" ? "is-active" : ""}`}
-          onClick={() => setActiveTab("trend")}
+          aria-selected={activeTab === "ranking"}
+          className={`analysis-subnav-btn ${activeTab === "ranking" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("ranking")}
           type="button"
         >
-          <Icon name="activity" size={14} />
-          <span>Tren Wilayah</span>
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "multi-region"}
-          className={`analysis-subnav-btn ${activeTab === "multi-region" ? "is-active" : ""}`}
-          onClick={() => setActiveTab("multi-region")}
-          type="button"
-        >
-          <Icon name="award" size={14} />
-          <span>Peringkat & Komparasi</span>
+          <Icon name="bar-chart" size={14} />
+          <span>Peringkat &amp; Komparasi</span>
         </button>
         <button
           role="tab"
@@ -1100,20 +1037,40 @@ export default function AnalysisPanel() {
           <Icon name="sliders" size={14} />
           <span>Kesenjangan (M-F)</span>
         </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "growth"}
-          className={`analysis-subnav-btn ${activeTab === "growth" ? "is-active" : ""}`}
-          onClick={() => setActiveTab("growth")}
-          type="button"
-        >
-          <Icon name="trending-up" size={14} />
-          <span>Pertumbuhan</span>
-        </button>
-      </div>
+      </div>}
+      <p className="analysis-panel-intro">
+        {visualizationOnly
+          ? "Jelajahi tren wilayah dan perubahan YoY melalui visualisasi."
+          : "Tinjau peringkat wilayah dan kesenjangan melalui ringkasan statistik dan tabel."}
+      </p>
 
-      {/* ================= TAB 1: TREN WILAYAH ================= */}
-      {activeTab === "trend" && (
+      {visualizationOnly && (
+        <div className="vis-subnav" role="tablist" aria-label="Jenis visualisasi">
+          <button
+            aria-selected={visTab === "trend"}
+            className={`vis-subnav-btn${visTab === "trend" ? " is-active" : ""}`}
+            onClick={() => setVisTab("trend")}
+            role="tab"
+            type="button"
+          >
+            <Icon name="activity" size={12} />
+            Tren Wilayah
+          </button>
+          <button
+            aria-selected={visTab === "compare"}
+            className={`vis-subnav-btn${visTab === "compare" ? " is-active" : ""}`}
+            onClick={() => setVisTab("compare")}
+            role="tab"
+            type="button"
+          >
+            <Icon name="bar-chart" size={12} />
+            Perubahan YoY
+          </button>
+        </div>
+      )}
+
+      {/* ================= VISUALISASI: TREN WILAYAH ================= */}
+      {visualizationOnly && visTab === "trend" && (
         <div className="analysis-tab-content">
           <div className="analysis-period-summary" aria-label="Periode dan jumlah tes Ookla terbaru">
             <div className="analysis-period-main">
@@ -1146,6 +1103,24 @@ export default function AnalysisPanel() {
           <div aria-label="Pengelompokan periode" className="analysis-period-toggle" role="group">
             <button aria-pressed={periodMode === "year"} className={periodMode === "year" ? "is-active" : ""} onClick={() => setPeriodMode("year")} type="button">Tahunan</button>
             <button aria-pressed={periodMode === "quarter"} className={periodMode === "quarter" ? "is-active" : ""} onClick={() => setPeriodMode("quarter")} type="button">Kuartalan</button>
+          </div>
+          <div className="coverage-panel-filters analysis-filters analysis-period-filters">
+            <label>
+              <span>Tahun</span>
+              <select aria-label="Filter tahun tren" onChange={(event) => setSelectedYear(event.target.value)} value={selectedYear}>
+                <option value="all">Semua tahun</option>
+                {analysisYears.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </label>
+            {periodMode === "quarter" && (
+              <label>
+                <span>Kuartal</span>
+                <select aria-label="Filter kuartal tren" onChange={(event) => setSelectedQuarter(event.target.value)} value={selectedQuarter}>
+                  <option value="all">Semua kuartal</option>
+                  {[1, 2, 3, 4].map((quarter) => <option key={quarter} value={quarter}>Q{quarter}</option>)}
+                </select>
+              </label>
+            )}
           </div>
           <div className="analysis-chart-wrap">
             <div className="analysis-chart-heading">
@@ -1216,7 +1191,7 @@ export default function AnalysisPanel() {
             </div>
           </div>
           <div className="analysis-kpi">
-            <span>Perubahan Mobile, {latestYear ? changeLabel : "antarperiode"}</span>
+            <span>Perubahan Mobile, {changeLabel}</span>
             <strong className={periodChange !== null && periodChange < 0 ? "is-negative" : ""}>
               {periodChange === null ? "—" : `${periodChange > 0 ? "+" : ""}${periodChange.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}
             </strong>
@@ -1271,179 +1246,132 @@ export default function AnalysisPanel() {
         </div>
       )}
 
-      {/* ================= TAB 2: PERINGKAT & KOMPARASI MULTI-WILAYAH ================= */}
-      {activeTab === "multi-region" && (
+      {/* ================= TAB 2: PERINGKAT & KOMPARASI ================= */}
+      {!visualizationOnly && activeTab === "ranking" && (
         <div className="analysis-tab-content">
-          <div className="coverage-panel-filters analysis-filters">
+          <div className="coverage-panel-filters analysis-filters analysis-ranking-filters">
             <label>
-              <span>Periode</span>
-              <select onChange={(e) => setMrPeriod(e.target.value)} value={mrPeriod}>
-                {analysisData.periods.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
+              <span>Periode peringkat</span>
+              <select aria-label="Pilih periode peringkat" onChange={(event) => setRankingPeriod(event.target.value)} value={rankingPeriod}>
+                {analysisData.periods.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
               </select>
             </label>
             <label>
               <span>Jaringan</span>
-              <select onChange={(e) => setMrNetworkType(e.target.value as "mobile" | "fixed")} value={mrNetworkType}>
+              <select aria-label="Pilih jaringan peringkat" onChange={(event) => setRankingNetworkType(event.target.value as "mobile" | "fixed")} value={rankingNetworkType}>
                 <option value="mobile">Mobile</option>
                 <option value="fixed">Fixed broadband</option>
               </select>
             </label>
             <label>
               <span>Metrik</span>
-              <select onChange={(e) => setMrMetric(e.target.value as MapMetric)} value={mrMetric}>
-                {Object.entries(metricLabels).map(([val, lbl]) => (
-                  <option key={val} value={val}>{lbl}</option>
-                ))}
+              <select aria-label="Pilih metrik peringkat" onChange={(event) => setRankingMetric(event.target.value as MapMetric)} value={rankingMetric}>
+                {Object.entries(metricLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
           </div>
 
-          <div className="analysis-section-box">
-            <div className="analysis-box-header">
-              <div>
-                <strong>Peringkat 8 Wilayah di Indonesia</strong>
-                <p>Urutan performa terbaik berdasarkan data {analysisData.periods.find((p) => p.value === mrPeriod)?.label} ({mrNetworkType === "mobile" ? "Mobile" : "Fixed"})</p>
-              </div>
-              <button
-                className="map-export-button"
-                onClick={() =>
-                  downloadLeaderboardCsv(
-                    leaderboardItems,
-                    mrMetric,
-                    mrNetworkType,
-                    analysisData.periods.find((p) => p.value === mrPeriod)?.label ?? mrPeriod
-                  )
-                }
-                type="button"
-              >
-                <Icon name="download" size={13} /> Ekspor CSV
-              </button>
+          <div className="analysis-national-summary">
+            <div>
+              <span>DATA INDONESIA · {analysisData.periods.find((period) => period.value === rankingPeriod)?.label ?? rankingPeriod}</span>
+              <strong>{indonesiaRankingData ? formatValue(indonesiaRankingData.value, rankingMetric) : "Data tidak tersedia"}</strong>
+              <small>Indonesia &amp; sekitar · {rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband"}</small>
             </div>
-
-            <div className="leaderboard-list">
-              {leaderboardItems.map((item) => {
-                const isNational = item.regionValue === "indonesia-sekitarnya";
-                const isPositiveDiff = mrMetric === "latency" ? item.diffVsBenchmark < 0 : item.diffVsBenchmark > 0;
-                const ratioPct = Math.min(100, Math.max(10, (item.value / maxLeaderboardVal) * 100));
-                const medal = item.rank === 1 ? "🥇" : item.rank === 2 ? "🥈" : item.rank === 3 ? "🥉" : `#${item.rank}`;
-
-                return (
-                  <div className={`leaderboard-card ${isNational ? "is-national" : ""}`} key={item.regionValue}>
-                    <div className="leaderboard-card-rank">{medal}</div>
-                    <div className="leaderboard-card-info">
-                      <div className="leaderboard-name-row">
-                        <strong>{item.regionLabel}</strong>
-                        <span className="leaderboard-value">
-                          {formatValue(item.value, mrMetric)}
-                        </span>
-                      </div>
-                      <div className="leaderboard-bar-track">
-                        <div
-                          className="leaderboard-bar-fill"
-                          style={{
-                            width: `${ratioPct}%`,
-                            background: regionColors[item.regionValue] || "#2563eb",
-                          }}
-                        />
-                      </div>
-                      <div className="leaderboard-meta-row">
-                        <span>
-                          {isNational ? (
-                            "Tolok Ukur Rata-rata Nasional"
-                          ) : (
-                            <em className={isPositiveDiff ? "diff-positive" : "diff-negative"}>
-                              {isPositiveDiff ? "+" : ""}
-                              {mrMetric === "latency"
-                                ? `${item.diffVsBenchmark.toFixed(1)} ms vs Nasional`
-                                : `${(item.diffVsBenchmark / 1000).toFixed(1)} Mbps vs Nasional`}
-                            </em>
-                          )}
-                        </span>
-                        <small>{formatNumber(item.tests)} tes · {formatNumber(item.devices)} perangkat</small>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div>
+              <span>JUMLAH TES</span>
+              <strong>{formatNumber(indonesiaRankingData?.tests ?? 0)}</strong>
+              <small>{formatNumber(indonesiaRankingData?.devices ?? 0)} perangkat</small>
             </div>
           </div>
 
-          <div className="analysis-chart-wrap" style={{ marginTop: "16px" }}>
-            <div className="analysis-chart-heading">
-              <strong>Grafik Komparasi Antar-Wilayah (2021–2026)</strong>
-              <span>{mrMetric === "latency" ? "ms (lebih rendah lebih baik)" : "Mbps"}</span>
-            </div>
-            <p className="analysis-chip-hint">Pilih wilayah untuk ditampilkan di grafik komparasi:</p>
-            <div className="analysis-chip-grid">
-              {analysisData.regions.map((reg) => {
-                const isActive = activeRegions.includes(reg.value);
-                const color = regionColors[reg.value] || "#475569";
-                return (
-                  <button
-                    key={reg.value}
-                    type="button"
-                    className={`analysis-region-chip ${isActive ? "is-active" : ""}`}
-                    onClick={() => toggleRegionActive(reg.value)}
-                    style={{ borderColor: isActive ? color : undefined }}
-                  >
-                    <span style={{ background: color }} />
-                    <span>{reg.label.replace(" (perkiraan)", "")}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <svg
-              className="analysis-chart"
-              role="img"
-              aria-label="Grafik komparasi multi-wilayah"
-              viewBox="0 0 640 250"
+          <div className="map-section-heading analysis-table-heading">
+            <span>PERINGKAT 8 WILAYAH DI INDONESIA</span>
+            <button
+              className="map-export-button"
+              onClick={() => downloadLeaderboardCsv(rankingItems, rankingMetric, analysisData.periods.find((period) => period.value === rankingPeriod)?.label ?? rankingPeriod)}
+              type="button"
             >
-              <line className="analysis-grid-line" x1="42" x2="608" y1="18" y2="18" />
-              <line className="analysis-grid-line" x1="42" x2="608" y1="198" y2="198" />
-              <text className="analysis-axis-label" textAnchor="end" x="37" y="22">
-                {formatValue(multiRegionTimeline.maxVal, mrMetric)}
-              </text>
-              <text className="analysis-axis-label" textAnchor="end" x="37" y="202">
-                {formatValue(multiRegionTimeline.minVal, mrMetric)}
-              </text>
+              <Icon name="download" size={13} /> Ekspor CSV
+            </button>
+          </div>
+          <div className="analysis-table-wrap">
+            <table className="analysis-table">
+              <thead>
+                <tr><th>Peringkat</th><th>Wilayah</th><th>{metricLabels[rankingMetric]}</th><th>Selisih vs Indonesia</th><th>Tes</th></tr>
+              </thead>
+              <tbody>
+                {rankingItems.map((item) => (
+                  <tr key={item.regionValue}>
+                    <td>#{item.rank}</td>
+                    <th scope="row">{item.regionLabel}</th>
+                    <td>{formatValue(item.value, rankingMetric)}</td>
+                    <td>{formatValue(item.diffVsBenchmark, rankingMetric)}</td>
+                    <td>{formatNumber(item.tests)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              {multiRegionTimeline.series.map((s) => {
-                const pointsStr = s.points
-                  .map((v, idx) => {
-                    if (v === null) return null;
-                    const x = xFor(idx);
-                    const y = chartY(v, multiRegionTimeline.minVal, multiRegionTimeline.maxVal);
-                    return `${x},${y}`;
-                  })
-                  .filter((p): p is string => p !== null)
-                  .join(" ");
-
-                return (
-                  <polyline
-                    key={s.regionValue}
-                    fill="none"
-                    stroke={s.color}
-                    strokeWidth="2.4"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    points={pointsStr}
-                  />
-                );
+          <div className="map-section-heading analysis-table-heading">
+            <span>GRAFIK KOMPARASI ANTAR-WILAYAH · 2021–2026</span>
+          </div>
+          <p className="map-panel-footnote">Rata-rata metrik per kuartal, dibobot jumlah tes. Batas wilayah merupakan perkiraan; data berasal dari arsip Ookla.</p>
+          <div className="ml-region-pills">
+            {analysisData.regions.map((item) => {
+              const active = activeRegions.includes(item.value);
+              const color = regionColors[item.value] ?? "#475569";
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`ml-region-pill${active ? " is-active" : ""}`}
+                  key={item.value}
+                  onClick={() => toggleRankingRegion(item.value)}
+                  style={active ? { borderColor: color, color, background: `${color}18` } : {}}
+                  type="button"
+                >
+                  <span className="ml-region-dot" style={{ background: active ? color : "#c8d4ce" }} />
+                  {item.label.replace(" (perkiraan)", "")}
+                </button>
+              );
+            })}
+          </div>
+          <div className="analysis-chart-wrap analysis-comparison-chart-wrap">
+            <div className="analysis-chart-heading">
+              <strong>{metricLabels[rankingMetric]} · {rankingNetworkType === "mobile" ? "Mobile" : "Fixed broadband"}</strong>
+              <span>{rankingMetric === "latency" ? "ms" : "Mbps"}</span>
+            </div>
+            <svg aria-label={`Grafik komparasi ${metricLabels[rankingMetric]} antarwilayah 2021 hingga 2026`} className="analysis-chart" role="img" viewBox="0 0 640 230">
+              <line className="analysis-grid-line" x1="48" x2="610" y1="20" y2="20" />
+              <line className="analysis-grid-line" x1="48" x2="610" y1="175" y2="175" />
+              <text className="analysis-axis-label" textAnchor="end" x="44" y="24">{formatValue(regionalComparison.maximum, rankingMetric)}</text>
+              <text className="analysis-axis-label" textAnchor="end" x="44" y="179">{formatValue(regionalComparison.minimum, rankingMetric)}</text>
+              {regionalComparison.series.map((series) => {
+                const points = series.points.map((value, index) => {
+                  if (value === null) return "";
+                  const x = regionalComparison.periods.length <= 1
+                    ? 329
+                    : 48 + index * (562 / (regionalComparison.periods.length - 1));
+                  const span = regionalComparison.maximum - regionalComparison.minimum || Math.max(Math.abs(regionalComparison.maximum) * 0.1, 1);
+                  const y = 20 + ((regionalComparison.maximum - value) / span) * 155;
+                  return `${x},${y}`;
+                }).filter(Boolean).join(" ");
+                return <polyline key={series.value} points={points} style={{ fill: "none", stroke: series.color, strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }} />;
               })}
-
-              {multiRegionTimeline.periods.map((p, idx) => {
-                const showTick = p.value.endsWith("-01-01") || idx === multiRegionTimeline.periods.length - 1;
-                return showTick ? (
-                  <text key={p.value} className="analysis-x-label" textAnchor="middle" x={xFor(idx)} y="222">
-                    {p.label}
-                  </text>
-                ) : null;
+              {regionalComparison.periods.map((period, index) => {
+                const year = period.value.slice(0, 4);
+                if (index !== 0 && year === regionalComparison.periods[index - 1].value.slice(0, 4)) return null;
+                const x = regionalComparison.periods.length <= 1
+                  ? 329
+                  : 48 + index * (562 / (regionalComparison.periods.length - 1));
+                return <text className="analysis-x-label" key={period.value} textAnchor="middle" x={x} y="198">{year}</text>;
               })}
-              <text className="analysis-x-label" textAnchor="middle" x="325" y="244">Linimasa Kuartalan</text>
             </svg>
+            <div className="ml-chart-legend">
+              {regionalComparison.series.map((series) => (
+                <span key={series.value}><i style={{ background: series.color }} />{series.label}</span>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1451,17 +1379,6 @@ export default function AnalysisPanel() {
       {/* ================= TAB 3: KESENJANGAN (CONVERGENCE GAP) ================= */}
       {activeTab === "gap" && (
         <div className="analysis-tab-content">
-          <div className="coverage-panel-filters analysis-filters">
-            <label>
-              <span>Periode analisis kesenjangan</span>
-              <select onChange={(e) => setGapPeriod(e.target.value)} value={gapPeriod}>
-                {analysisData.periods.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
           <div className="gap-kpi-grid">
             <div className="gap-kpi-card">
               <span>RASIO UNDUH NASIONAL</span>
@@ -1470,8 +1387,8 @@ export default function AnalysisPanel() {
             </div>
             <div className="gap-kpi-card">
               <span>DISPARITAS LATENSI</span>
-              <strong>{convergenceData.national ? `+${convergenceData.national.latencyDiff.toFixed(1)} ms` : "—"}</strong>
-              <small>Mobile lebih lambat vs Fixed</small>
+              <strong>{convergenceData.national ? `${convergenceData.national.latencyDiff > 0 ? "+" : ""}${convergenceData.national.latencyDiff.toFixed(1)} ms` : "—"}</strong>
+              <small>Selisih latensi Mobile − Fixed</small>
             </div>
             <div className="gap-kpi-card">
               <span>WILAYAH PALING TIMPANG</span>
@@ -1485,8 +1402,16 @@ export default function AnalysisPanel() {
             </div>
           </div>
 
-          <div className="map-section-heading analysis-table-heading" style={{ marginTop: "18px" }}>
-            <span>TABEL KESENJANGAN 8 WILAYAH · {convergenceData.periodLabel}</span>
+          <div className="coverage-panel-filters analysis-filters analysis-gap-period-filter">
+            <label>
+              <span>Periode kesenjangan</span>
+              <select aria-label="Pilih periode kesenjangan" onChange={(event) => setGapPeriod(event.target.value)} value={gapPeriod}>
+                {analysisData.periods.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="map-section-heading analysis-table-heading">
+            <span>TABEL KESENJANGAN 8 WILAYAH · {convergenceData.periodLabel.toUpperCase()}</span>
             <button
               className="map-export-button"
               onClick={() => downloadConvergenceCsv(convergenceData.items, convergenceData.periodLabel)}
@@ -1495,152 +1420,277 @@ export default function AnalysisPanel() {
               <Icon name="download" size={13} /> Ekspor CSV
             </button>
           </div>
-
           <div className="analysis-table-wrap">
             <table className="analysis-table">
               <thead>
-                <tr>
-                  <th>Wilayah</th>
-                  <th>Mobile</th>
-                  <th>Fixed</th>
-                  <th>Rasio Unduh</th>
-                  <th>Latensi M / F</th>
-                  <th>Status</th>
-                </tr>
+                <tr><th>Wilayah</th><th>Unduh Mobile</th><th>Unduh Fixed</th><th>Rasio F/M</th><th>Selisih latensi</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {convergenceData.items.map((item) => (
                   <tr key={item.regionValue}>
-                    <th scope="row"><strong>{item.regionLabel}</strong></th>
-                    <td>{(item.mobileDownload / 1000).toFixed(1)} Mbps</td>
-                    <td>{(item.fixedDownload / 1000).toFixed(1)} Mbps</td>
-                    <td><strong>{item.ratio.toFixed(1)}x</strong></td>
-                    <td>{item.mobileLatency.toFixed(0)} ms / {item.fixedLatency.toFixed(0)} ms</td>
-                    <td>
-                      <span
-                        className="gap-status-pill"
-                        style={{ color: item.statusColor, background: item.statusBg }}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
+                    <th scope="row">{item.regionLabel}</th>
+                    <td>{formatValue(item.mobileDownload, "download")}</td>
+                    <td>{formatValue(item.fixedDownload, "download")}</td>
+                    <td>{item.ratio.toFixed(1)}x</td>
+                    <td>{formatValue(item.latencyDiff, "latency")}</td>
+                    <td><span className="gap-status-pill" style={{ color: item.statusColor, background: item.statusBg }}>{item.status}</span></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="map-panel-footnote">Rasio Unduh = Kecepatan Fixed dibagi Mobile. Rasio tinggi menandakan disparitas besar antara infrastruktur kabel rumah dan jaringan seluler.</p>
+          <p className="map-panel-footnote">Rasio unduh adalah kecepatan Fixed dibagi Mobile; rasio lebih tinggi menunjukkan disparitas lebih besar. Data berasal dari arsip Ookla.</p>
         </div>
       )}
 
-      {/* ================= TAB 4: PERTUMBUHAN (GROWTH) ================= */}
-      {activeTab === "growth" && (
-        <div className="analysis-tab-content">
-          <div className="coverage-panel-filters analysis-filters">
-            <label>
-              <span>Jaringan</span>
-              <select onChange={(e) => setGrowthNetworkType(e.target.value as "mobile" | "fixed")} value={growthNetworkType}>
-                <option value="mobile">Mobile</option>
-                <option value="fixed">Fixed broadband</option>
-              </select>
-            </label>
-            <label>
-              <span>Metrik Pertumbuhan</span>
-              <select onChange={(e) => setGrowthMetric(e.target.value as MapMetric)} value={growthMetric}>
-                {Object.entries(metricLabels).map(([val, lbl]) => (
-                  <option key={val} value={val}>{lbl}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+      {/* ================= VISUALISASI: DELTA HEATMAP + MULTI-LINE CHART ================= */}
+      {visualizationOnly && visTab !== "trend" && (() => {
+        // --- Kalkulasi Delta Heatmap ---
+        const latestP = analysisData.latestPeriod;
+        const allPeriods = analysisData.periods.map((p) => p.value);
+        const latestIdx = allPeriods.indexOf(latestP);
+        // YoY = periode yang sama 4 kuartal lalu
+        const yoyP = latestIdx + 4 < allPeriods.length ? allPeriods[latestIdx + 4] : null;
 
-          <div className="gap-kpi-grid">
-            <div className="gap-kpi-card">
-              <span>PERTUMBUHAN NASIONAL (YoY)</span>
-              <strong>
-                {growthData.national?.yoyPct !== null && growthData.national?.yoyPct !== undefined
-                  ? `${growthData.national.yoyPct > 0 ? "+" : ""}${growthData.national.yoyPct.toFixed(1)}%`
-                  : "—"}
-              </strong>
-              <small>{growthData.priorYoYLabel} → {growthData.latestLabel}</small>
+        const deltaItems = analysisData.regions.map((reg) => {
+          const getVal = (period: string | null) => {
+            if (!period) return null;
+            const e = analysisData.entries.find(
+              (entry) => entry.region === reg.value && entry.period === period && entry.networkType === visNetworkType
+            );
+            if (!e) return null;
+            if (visMetric === "download") return e.avgDownloadKbps;
+            if (visMetric === "upload") return e.avgUploadKbps;
+            return e.avgLatencyMs;
+          };
+          const curr = getVal(latestP);
+          const prior = getVal(yoyP);
+          const delta = curr !== null && prior !== null && prior > 0
+            ? visMetric === "latency"
+              ? ((prior - curr) / prior) * 100
+              : ((curr - prior) / prior) * 100
+            : null;
+          return {
+            value: reg.value,
+            label: reg.label.replace(" (perkiraan)", ""),
+            curr,
+            prior,
+            delta,
+            color: regionColors[reg.value] ?? "#475569",
+          };
+        });
+
+        const toggleRegion = (val: string) => {
+          setMlSelectedRegions((prev) =>
+            prev.includes(val) ? (prev.length > 1 ? prev.filter((r) => r !== val) : prev) : [...prev, val]
+          );
+        };
+
+        const visibleDeltaItems = deltaItems.filter((item) => mlSelectedRegions.includes(item.value));
+        const visibleMaxAbsDelta = Math.max(0.1, ...visibleDeltaItems.map((item) => Math.abs(item.delta ?? 0)));
+        const metricUnit = visMetric === "latency" ? "ms" : "Mbps";
+        const latestLabel = analysisData.periods.find((p) => p.value === latestP)?.label ?? latestP;
+        const priorLabel = yoyP ? (analysisData.periods.find((p) => p.value === yoyP)?.label ?? yoyP) : "—";
+
+        return (
+          <div className="analysis-tab-content">
+            {/* --- Kontrol Bersama --- */}
+            <div className="coverage-panel-filters analysis-filters">
+              <label>
+                <span>Jaringan</span>
+                <select onChange={(e) => setVisNetworkType(e.target.value as "mobile" | "fixed")} value={visNetworkType}>
+                  <option value="mobile">Mobile</option>
+                  <option value="fixed">Fixed broadband</option>
+                </select>
+              </label>
+              <label>
+                <span>Metrik</span>
+                <select onChange={(e) => setVisMetric(e.target.value as MapMetric)} value={visMetric}>
+                  {Object.entries(metricLabels).map(([val, lbl]) => (
+                    <option key={val} value={val}>{lbl}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="gap-kpi-card">
-              <span>AKSELERASI TERTINGGI (YoY)</span>
-              <strong>{growthData.topGainer?.regionLabel.replace(" (perkiraan)", "")}</strong>
-              <small>
-                {growthData.topGainer?.yoyPct !== null && growthData.topGainer?.yoyPct !== undefined
-                  ? `Peningkatan ${growthData.topGainer.yoyPct > 0 ? "+" : ""}${growthData.topGainer.yoyPct.toFixed(1)}% YoY`
-                  : "—"}
-              </small>
-            </div>
-          </div>
 
-          <div className="map-section-heading analysis-table-heading" style={{ marginTop: "18px" }}>
-            <span>PERINGKAT AKSELERASI & PERTUMBUHAN WILAYAH</span>
-            <button
-              className="map-export-button"
-              onClick={() => downloadGrowthCsv(growthData.items, growthMetric, growthNetworkType)}
-              type="button"
-            >
-              <Icon name="download" size={13} /> Ekspor CSV
-            </button>
-          </div>
+            {visTab === "compare" && (
+              <div className="vis-section">
+                <div className="vis-section-header">
+                  <div>
+                    <strong>Wilayah yang dibandingkan</strong>
+                    <p>Pilih wilayah untuk menyaring perubahan YoY.</p>
+                  </div>
+                </div>
+                <div className="ml-region-pills">
+                  {analysisData.regions.map((reg) => {
+                    const active = mlSelectedRegions.includes(reg.value);
+                    return (
+                      <button
+                        key={reg.value}
+                        aria-pressed={active}
+                        className={`ml-region-pill${active ? " is-active" : ""}`}
+                        onClick={() => toggleRegion(reg.value)}
+                        style={active ? { borderColor: regionColors[reg.value], color: regionColors[reg.value], background: `${regionColors[reg.value]}18` } : {}}
+                        type="button"
+                      >
+                        <span className="ml-region-dot" style={{ background: active ? regionColors[reg.value] : "#c8d4ce" }} />
+                        {reg.label.replace(" (perkiraan)", "")}
+                      </button>
+                    );
+                  })}
+                </div>
 
-          <div className="analysis-table-wrap">
-            <table className="analysis-table">
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Wilayah</th>
-                  <th>Nilai Terkini</th>
-                  <th>1 Thn Lalu</th>
-                  <th>YoY (%)</th>
-                  <th>QoQ (%)</th>
-                  <th>5 Tahun (%)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {growthData.items.map((item) => {
-                  const yoyPositive = item.yoyPct !== null && item.yoyPct > 0;
-                  const qoqPositive = item.qoqPct !== null && item.qoqPct > 0;
-                  const fivePositive = item.fiveYearPct !== null && item.fiveYearPct > 0;
+                <div className="vis-section-header">
+                  <div>
+                    <strong>Perubahan YoY per Wilayah</strong>
+                    <p>Perubahan {metricLabels[visMetric]} ({metricUnit}) dari <span className="vis-period-chip">{priorLabel}</span> ke <span className="vis-period-chip">{latestLabel}</span></p>
+                  </div>
+                </div>
+                <div className="delta-heatmap-grid">
+                  {visibleDeltaItems.map((item) => {
+                    const hasData = item.delta !== null;
+                    const isPositive = (item.delta ?? 0) >= 0;
+                    const pct = hasData ? Math.abs(item.delta!) / visibleMaxAbsDelta : 0;
+                    const barColor = !hasData
+                      ? "#e2e8e4"
+                      : isPositive ? "#16a085" : "#e74c3c";
+                    const bgAlpha = Math.round(pct * 0.18 * 255).toString(16).padStart(2, "0");
+                    const bgColor = !hasData ? "#f8faf9" : (isPositive ? `#16a085${bgAlpha}` : `#e74c3c${bgAlpha}`);
 
-                  return (
-                    <tr key={item.regionValue}>
-                      <td>#{item.rank}</td>
-                      <th scope="row"><strong>{item.regionLabel}</strong></th>
-                      <td>{formatValue(item.currentValue, growthMetric)}</td>
-                      <td>{item.priorYoYValue !== null ? formatValue(item.priorYoYValue, growthMetric) : "—"}</td>
-                      <td>
-                        {item.yoyPct !== null ? (
-                          <span className={`growth-badge ${yoyPositive ? "is-pos" : "is-neg"}`}>
-                            {yoyPositive ? "+" : ""}{item.yoyPct.toFixed(1)}%
+                    return (
+                      <div key={item.value} className="delta-heatmap-card" style={{ background: bgColor }}>
+                        <div className="delta-card-top">
+                          <span className="delta-card-dot" style={{ background: item.color }} />
+                          <span className="delta-card-name">{item.label}</span>
+                          {hasData && (
+                            <span className={`delta-card-badge ${isPositive ? "is-pos" : "is-neg"}`}>
+                              {isPositive ? "▲" : "▼"} {Math.abs(item.delta!).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="delta-bar-track">
+                          <div
+                            className="delta-bar-fill"
+                            style={{
+                              width: `${pct * 100}%`,
+                              background: barColor,
+                              marginLeft: isPositive ? "0" : "auto",
+                            }}
+                          />
+                        </div>
+                        <div className="delta-card-values">
+                          <span>
+                            {item.prior !== null
+                              ? `${priorLabel}: ${visMetric === "latency" ? item.prior.toFixed(1) : (item.prior / 1000).toFixed(1)} ${metricUnit}`
+                              : "—"}
                           </span>
-                        ) : "—"}
-                      </td>
-                      <td>
-                        {item.qoqPct !== null ? (
-                          <span className={`growth-badge ${qoqPositive ? "is-pos" : "is-neg"}`}>
-                            {qoqPositive ? "+" : ""}{item.qoqPct.toFixed(1)}%
+                          <span>
+                            {item.curr !== null
+                              ? `${latestLabel}: ${visMetric === "latency" ? item.curr.toFixed(1) : (item.curr / 1000).toFixed(1)} ${metricUnit}`
+                              : "—"}
                           </span>
-                        ) : "—"}
-                      </td>
-                      <td>
-                        {item.fiveYearPct !== null ? (
-                          <span className={`growth-badge ${fivePositive ? "is-pos" : "is-neg"}`}>
-                            {fivePositive ? "+" : ""}{item.fiveYearPct.toFixed(1)}%
-                          </span>
-                        ) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="map-panel-footnote">
+                  Positif (hijau) = peningkatan kecepatan / penurunan latensi. Negatif (merah) = penurunan.
+                  Perbandingan {priorLabel} → {latestLabel} ({visNetworkType === "mobile" ? "Mobile" : "Fixed"}).
+                </p>
+
+                <div className="vis-section-header">
+                  <div>
+                    <strong>Peringkat Akselerasi &amp; Pertumbuhan Wilayah</strong>
+                    <p>Perbandingan pertumbuhan untuk {visNetworkType === "mobile" ? "Mobile" : "Fixed broadband"} · {metricLabels[visMetric]}</p>
+                  </div>
+                  <button
+                    className="map-export-button"
+                    onClick={() => downloadGrowthCsv(growthData.items, visMetric, visNetworkType)}
+                    type="button"
+                  >
+                    <Icon name="download" size={13} /> Ekspor CSV
+                  </button>
+                </div>
+                <div className="gap-kpi-grid">
+                  <div className="gap-kpi-card">
+                    <span>PERTUMBUHAN NASIONAL (YoY)</span>
+                    <strong>
+                      {growthData.national?.yoyPct !== null && growthData.national?.yoyPct !== undefined
+                        ? `${growthData.national.yoyPct > 0 ? "+" : ""}${growthData.national.yoyPct.toFixed(1)}%`
+                        : "—"}
+                    </strong>
+                    <small>{growthData.priorYoYLabel} → {growthData.latestLabel}</small>
+                  </div>
+                  <div className="gap-kpi-card">
+                    <span>AKSELERASI TERTINGGI (YoY)</span>
+                    <strong>{growthData.topGainer?.regionLabel.replace(" (perkiraan)", "")}</strong>
+                    <small>
+                      {growthData.topGainer?.yoyPct !== null && growthData.topGainer?.yoyPct !== undefined
+                        ? `Peningkatan ${growthData.topGainer.yoyPct > 0 ? "+" : ""}${growthData.topGainer.yoyPct.toFixed(1)}% YoY`
+                        : "—"}
+                    </small>
+                  </div>
+                </div>
+                <div className="analysis-table-wrap">
+                  <table className="analysis-table">
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Wilayah</th>
+                        <th>Nilai Terkini</th>
+                        <th>1 Thn Lalu</th>
+                        <th>YoY (%)</th>
+                        <th>QoQ (%)</th>
+                        <th>5 Tahun (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {growthData.items.map((item) => {
+                        const yoyPositive = item.yoyPct !== null && item.yoyPct > 0;
+                        const qoqPositive = item.qoqPct !== null && item.qoqPct > 0;
+                        const fivePositive = item.fiveYearPct !== null && item.fiveYearPct > 0;
+
+                        return (
+                          <tr key={item.regionValue}>
+                            <td>#{item.rank}</td>
+                            <th scope="row"><strong>{item.regionLabel}</strong></th>
+                            <td>{formatValue(item.currentValue, visMetric)}</td>
+                            <td>{item.priorYoYValue !== null ? formatValue(item.priorYoYValue, visMetric) : "—"}</td>
+                            <td>
+                              {item.yoyPct !== null ? (
+                                <span className={`growth-badge ${yoyPositive ? "is-pos" : "is-neg"}`}>
+                                  {yoyPositive ? "+" : ""}{item.yoyPct.toFixed(1)}%
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {item.qoqPct !== null ? (
+                                <span className={`growth-badge ${qoqPositive ? "is-pos" : "is-neg"}`}>
+                                  {qoqPositive ? "+" : ""}{item.qoqPct.toFixed(1)}%
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td>
+                              {item.fiveYearPct !== null ? (
+                                <span className={`growth-badge ${fivePositive ? "is-pos" : "is-neg"}`}>
+                                  {fivePositive ? "+" : ""}{item.fiveYearPct.toFixed(1)}%
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="map-panel-footnote">YoY = pertumbuhan dibandingkan kuartal yang sama tahun lalu. 5 Tahun = total perubahan sejak Q4 2021 hingga {growthData.latestLabel}.</p>
+              </div>
+            )}
+
           </div>
-          <p className="map-panel-footnote">YoY = Pertumbuhan dibandingkan kuartal yang sama tahun lalu. 5 Tahun = Total ekspansi sejak Q4 2021 hingga {growthData.latestLabel}.</p>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
