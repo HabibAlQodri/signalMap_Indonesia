@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { formatNumber } from "../lib/network-data";
 import {
@@ -371,6 +371,35 @@ export default function MapView({
   const dataError = loadedDataset?.key === datasetKey ? loadedDataset.error : "";
   const [mapError, setMapError] = useState("");
   const [locationError, setLocationError] = useState("");
+  const locationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLocationError = useCallback(() => {
+    if (locationTimerRef.current) {
+      clearTimeout(locationTimerRef.current);
+      locationTimerRef.current = null;
+    }
+    setLocationError("");
+  }, []);
+
+  const showLocationError = useCallback((msg: string) => {
+    if (locationTimerRef.current) {
+      clearTimeout(locationTimerRef.current);
+    }
+    setLocationError(msg);
+    locationTimerRef.current = setTimeout(() => {
+      setLocationError("");
+      locationTimerRef.current = null;
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (locationTimerRef.current) {
+        clearTimeout(locationTimerRef.current);
+      }
+    };
+  }, []);
+
   const [mapReady, setMapReady] = useState(false);
   const [mapRendered, setMapRendered] = useState(false);
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
@@ -922,17 +951,17 @@ export default function MapView({
 
   function locateUser() {
     if (!navigator.geolocation) {
-      setLocationError("Lokasi perangkat tidak didukung oleh browser ini.");
+      showLocationError("Lokasi perangkat tidak didukung oleh browser ini.");
       return;
     }
-    setLocationError("");
+    clearLocationError();
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 10, duration: 900 });
         setSelectedCell(null);
       },
       (error) => {
-        setLocationError(error.code === error.PERMISSION_DENIED ? "Izin lokasi belum diberikan." : "Lokasi perangkat tidak dapat ditemukan.");
+        showLocationError(error.code === error.PERMISSION_DENIED ? "Izin lokasi belum diberikan." : "Lokasi perangkat tidak dapat ditemukan.");
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     );
@@ -1044,8 +1073,29 @@ export default function MapView({
       {!data && !dataError && (
         <div className="map-loading-chip" role="status"><span className="map-loading-spinner" />Memuat data pengukuran…</div>
       )}
-      {!cartoKey && <div className="map-location-error" role="status">Basemap belum dikonfigurasi. Isi NEXT_PUBLIC_CARTO_KEY di .env.local lalu jalankan ulang aplikasi.</div>}
-      {(locationError || mapError) && <div className="map-location-error" role="status">{locationError || mapError}</div>}
+      {!cartoKey && (
+        <div className="map-location-error" role="status">
+          <Icon name="locate" size={15} />
+          <span>Basemap belum dikonfigurasi. Isi NEXT_PUBLIC_CARTO_KEY di .env.local lalu jalankan ulang aplikasi.</span>
+        </div>
+      )}
+      {(locationError || mapError) && (
+        <div className="map-location-error" role="status">
+          <Icon name="locate" size={15} />
+          <span>{locationError || mapError}</span>
+          <button
+            aria-label="Tutup notifikasi"
+            className="map-error-close-btn"
+            onClick={() => {
+              clearLocationError();
+              if (mapError) setMapError("");
+            }}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {dataError && <div className="map-data-error" role="alert">{dataError}</div>}
 
       <div className="map-legend map-floating-card">

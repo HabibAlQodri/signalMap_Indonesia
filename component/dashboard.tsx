@@ -622,13 +622,6 @@ export default function Dashboard() {
 
       <div aria-live="polite" className="sr-only" role="status">{announcement}</div>
 
-      <div className="map-bottom-left">
-        <span className="map-bottom-pulse" />
-        <span>{focusLocation.name}</span>
-        <i />
-        <span>{overlayOn ? `Ookla ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} · ${ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}` : "Overlay nonaktif"}</span>
-      </div>
-
       <div
         aria-hidden={!initialLoading}
         aria-live="polite"

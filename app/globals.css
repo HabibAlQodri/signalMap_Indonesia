@@ -558,10 +558,53 @@ body { background: #dce8e7; }
 .map-legend-bands span { flex: 1; text-align: center; white-space: nowrap; }
 .map-legend-bands span:first-child { text-align: left; }
 .map-legend-bands span:last-child { text-align: right; }
-.map-data-error, .map-location-error { position: absolute; z-index: 8; top: 70px; left: 50%; width: max-content; max-width: calc(100% - 32px); transform: translateX(-50%); border: 1px solid #ecd7d0; border-radius: 8px; background: rgb(255 250 248 / 96%); padding: 8px 11px; color: #a65346; font-size: 9px; box-shadow: 0 4px 12px rgb(30 45 45 / 12%); }
-.map-bottom-left { position: absolute; z-index: 4; bottom: 5px; left: 76px; display: flex; align-items: center; gap: 7px; color: #6b7974; font-size: 8px; pointer-events: none; }
-.map-bottom-pulse { width: 6px; height: 6px; }
-.map-bottom-left i { width: 3px; height: 3px; border-radius: 50%; background: #a5b0ab; }
+.map-data-error { position: absolute; z-index: 8; top: 70px; left: 50%; width: max-content; max-width: calc(100% - 32px); transform: translateX(-50%); border: 1px solid #ecd7d0; border-radius: 8px; background: rgb(255 250 248 / 96%); padding: 8px 11px; color: #a65346; font-size: 9px; box-shadow: 0 4px 12px rgb(30 45 45 / 12%); }
+.map-location-error {
+  position: absolute;
+  z-index: 25;
+  top: 76px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transform: translateX(-50%);
+  border: 1px solid #f0cdc5;
+  border-radius: 999px;
+  background: rgb(255 248 246 / 96%);
+  padding: 7px 12px 7px 15px;
+  color: #a63f30;
+  font-size: 11.5px;
+  font-weight: 550;
+  box-shadow: 0 8px 24px rgb(166 63 48 / 16%);
+  backdrop-filter: blur(12px);
+  animation: map-toast-in .22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+@keyframes map-toast-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.map-error-close-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(166 63 48 / 12%);
+  color: #a63f30;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background .14s ease, color .14s ease;
+}
+.map-error-close-btn:hover {
+  background: #a63f30;
+  color: #fff;
+}
+.map-bottom-left { display: none !important; }
 .map-fullscreen-button { position: absolute; z-index: 5; top: 83px; right: 62px; display: grid; width: 38px; height: 37px; place-items: center; border: 1px solid rgb(255 255 255 / 88%); border-radius: 10px; background: rgb(255 255 255 / 95%); color: #596e69; cursor: pointer; box-shadow: 0 4px 18px rgb(34 53 60 / 13%); }
 .map-workspace:has(.map-side-panel) .map-fullscreen-button { right: 418px; }
 .map-fullscreen-button:hover { background: #f1f6f2; color: #258268; }
@@ -846,7 +889,7 @@ body { background: #dce8e7; }
 .map-coverage-bars i { height: 6px; }
 
 /* ---------- Kontrol peta (kanan-bawah) ---------- */
-.map-control-stack { position: absolute; z-index: 6; right: 12px; bottom: 58px; display: grid; gap: 8px; }
+.map-control-stack { position: absolute; z-index: 6; right: 14px; bottom: 48px; display: grid; gap: 8px; }
 .map-control-group { display: grid; overflow: hidden; border: 1px solid rgb(255 255 255 / 88%); border-radius: 11px; background: rgb(255 255 255 / 96%); box-shadow: 0 4px 18px rgb(34 53 60 / 14%); }
 .map-control-group button { display: grid; width: 42px; height: 42px; place-items: center; border: 0; background: transparent; color: #4f6560; cursor: pointer; transition: background .14s ease, color .14s ease; }
 .map-control-group button + button { border-top: 1px solid #e9eeeb; }
@@ -856,7 +899,7 @@ body { background: #dce8e7; }
 
 /* ---------- Legenda ---------- */
 .map-legend.map-floating-card,
-.map-workspace:has(.map-side-panel) .map-legend.map-floating-card { right: 66px; bottom: 58px; width: 236px; padding: 12px 13px 10px; }
+.map-workspace:has(.map-side-panel) .map-legend.map-floating-card { right: 68px; bottom: 48px; width: 236px; padding: 12px 13px 10px; }
 .map-legend-heading { margin-bottom: 9px; }
 .map-legend-heading strong { font-size: 12px; }
 .map-legend-heading span { font-size: 10.5px; }
@@ -867,20 +910,20 @@ body { background: #dce8e7; }
 .map-legend-note { margin: 8px 0 0; border-top: 1px solid #edf0ed; padding-top: 7px; color: #7f8e87; font-size: 10px; }
 
 /* ---------- Kartu performa & status ---------- */
-.map-performance-card { bottom: 58px; left: 12px; width: 330px; padding: 13px 15px 12px; }
+.map-performance-card { bottom: 46px; left: 14px; width: 320px; padding: 12px 14px 11px; }
 .map-workspace:has(.map-side-panel) .map-performance-card { left: calc(100px + min(580px, calc(100vw - 120px))); }
 .map-performance-top { font-size: 10px; }
-.map-performance-value { margin-top: 8px; font-size: 30px; }
-.map-performance-bottom { margin-top: 8px; font-size: 11px; }
+.map-performance-value { margin-top: 7px; font-size: 28px; }
+.map-performance-bottom { margin-top: 7px; font-size: 11px; }
 .map-performance-coordinate { font-size: 10.5px; }
-.map-bottom-left { bottom: 9px; left: 12px; z-index: 5; border-radius: 7px; background: rgb(255 255 255 / 86%); padding: 4px 10px; color: #566a64; font-size: 11px; box-shadow: 0 1px 6px rgb(34 53 60 / 10%); }
-.map-hud { position: absolute; z-index: 5; bottom: 9px; left: 50%; display: flex; align-items: center; gap: 8px; transform: translateX(-50%); border-radius: 7px; background: rgb(255 255 255 / 86%); padding: 4px 10px; color: #566a64; font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; box-shadow: 0 1px 6px rgb(34 53 60 / 10%); }
+.map-bottom-left { display: none !important; }
+.map-hud { position: absolute; z-index: 5; bottom: 12px; left: 14px; display: flex; align-items: center; gap: 8px; border: 1px solid rgb(255 255 255 / 82%); border-radius: 8px; background: rgb(255 255 255 / 88%); padding: 4px 10px; color: #4f645e; font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; box-shadow: 0 2px 8px rgb(34 53 60 / 10%); backdrop-filter: blur(8px); }
 .map-hud i { width: 3px; height: 3px; border-radius: 50%; background: #a5b0ab; }
-.map-hud span:first-child { min-width: 128px; text-align: center; }
-.maplibre-container .maplibregl-ctrl-bottom-right { right: 4px; bottom: 4px; }
+.map-hud span:first-child { min-width: 120px; text-align: center; }
+.maplibre-container .maplibregl-ctrl-bottom-right { right: 14px; bottom: 12px; }
 .maplibre-container .maplibregl-ctrl-scale { border-color: #50635d; background: rgb(255 255 255 / 84%); color: #3f524c; font-size: 10px; }
 .maplibre-container .maplibregl-ctrl-attrib { font-size: 10px; }
-.map-data-error, .map-location-error { font-size: 11px; }
+.map-data-error { font-size: 11px; }
 
 @media (min-width: 701px) {
   .map-panel-header { min-height: 86px; padding: 15px 22px; }
@@ -956,6 +999,7 @@ body { background: #dce8e7; }
 @media (max-width: 900px) {
   .map-workspace:has(.map-side-panel) .map-legend.map-floating-card { display: none; }
   .map-workspace:has(.map-side-panel) .map-performance-card { display: none; }
+  .map-workspace:has(.map-side-panel) .map-hud { display: none; }
   .map-hud span:first-child { min-width: 0; }
 }
 
@@ -1239,10 +1283,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .timelapse-dock {
   position: absolute;
   z-index: 10;
-  bottom: 24px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(680px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   border: 1px solid rgb(255 255 255 / 85%);
   border-radius: 16px;
   background: rgb(255 255 255 / 94%);
