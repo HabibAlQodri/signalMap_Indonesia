@@ -1861,3 +1861,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   flex: 0 0 auto;
   border-radius: 50%;
 }
+
+/* ---------- Fix: label rail tidak melewati border (lokalisasi / teks panjang) ---------- */
+@media (min-width: 701px) {
+  .map-tool-rail { width: 84px; padding: 8px 6px; }
+  .map-tool-rail button { width: 72px; min-width: 0; min-height: 56px; padding: 0 2px; }
+  .map-tool-rail button > span { display: block; max-width: 100%; overflow: hidden; font-size: 10.5px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+  .map-rail-separator { width: 40px; }
+
+  /* geser panel +18px mengikuti rail yang lebih lebar */
+  .map-side-panel { left: 106px; width: min(580px, calc(100vw - 138px)); }
+  .map-workspace:has(.map-side-panel) .map-performance-card { left: calc(118px + min(580px, calc(100vw - 138px))); }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .map-side-panel { width: min(480px, calc(100vw - 128px)); }
+  .map-workspace:has(.map-side-panel) .map-performance-card { left: calc(118px + min(480px, calc(100vw - 128px))); width: 300px; }
+}
+/* mobile (rail di bawah): label boleh mengecil tanpa keluar tombol */
+@media (max-width: 700px) {
+  .map-tool-rail button { min-width: 0; padding: 0 2px; }
+  .map-tool-rail button > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
