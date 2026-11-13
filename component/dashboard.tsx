@@ -13,8 +13,9 @@ import {
   formatOoklaPeriod,
 } from "../lib/ookla-data";
 import Icon, { type IconName } from "./icon";
-import MapView, { type Basemap, type MapMetric } from "./mapview";
+import MapView, { type Basemap, type MapMetric, type MapViewMode } from "./mapview";
 import AnalysisPanel from "./analysis-panel";
+import TimeLapsePlayer from "./timelapse-player";
 
 type PanelName = "layers" | "analysis";
 
@@ -84,6 +85,30 @@ export default function Dashboard() {
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
   const [view3d, setView3d] = useState(false);
+  const [viewMode, setViewMode] = useState<MapViewMode>("normal");
+
+  const referencePeriod = useMemo(() => {
+    const [y, m, d] = ooklaPeriod.split("-").map(Number);
+    const prior = `${y - 1}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return ooklaPeriods.periods.some((p) => p.value === prior) ? prior : null;
+  }, [ooklaPeriod]);
+
+  const hasReferencePeriod = referencePeriod !== null;
+
+  function toggleViewMode() {
+    if (viewMode === "delta") {
+      setViewMode("normal");
+    } else {
+      if (hasReferencePeriod) {
+        setViewMode("delta");
+      }
+    }
+  }
+
+  function toggleNetworkType() {
+    setOoklaNetworkType((curr) => (curr === "mobile" ? "fixed" : "mobile"));
+  }
+
   const [regionName, setRegionName] = useState("Indonesia");
   const [focusLocation, setFocusLocation] = useState({
     name: regions[0].name,
@@ -337,6 +362,19 @@ export default function Dashboard() {
               <span><strong>Hasil pengukuran</strong><small>{overlayOn ? `Overlay ${ooklaSummary?.networkLabel.toLocaleLowerCase("id-ID") ?? formatOoklaNetworkType(ooklaNetworkType).toLocaleLowerCase("id-ID")} aktif` : "Overlay disembunyikan"}</small></span>
               <i className={`switch-track ${overlayOn ? "is-on" : ""}`} />
             </button>
+            <button
+              aria-pressed={viewMode === "delta"}
+              className="map-layer-switch"
+              disabled={!hasReferencePeriod && viewMode !== "delta"}
+              onClick={toggleViewMode}
+            >
+              <span className="map-layer-symbol"><Icon name="trending-up" size={17} /></span>
+              <span>
+                <strong>Mode Pertumbuhan YoY</strong>
+                <small>{viewMode === "delta" ? `Membandingkan dengan 1 thn lalu (${referencePeriod ? formatOoklaPeriod(referencePeriod) : "—"})` : (hasReferencePeriod ? `Bandingkan dengan ${referencePeriod ? formatOoklaPeriod(referencePeriod) : "—"}` : "Perlu data 1 thn sebelumnya")}</small>
+              </span>
+              <i className={`switch-track ${viewMode === "delta" ? "is-on" : ""}`} />
+            </button>
             <button aria-pressed={view3d} className="map-layer-switch" disabled={!overlayOn} onClick={() => setView3d((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="layers" size={17} /></span>
               <span><strong>Tampilan 3D</strong><small>{view3d ? "Batang tinggi = jumlah tes, hanya area layar" : "Miringkan peta, tampilkan batang"}</small></span>
@@ -404,11 +442,24 @@ export default function Dashboard() {
         basemap={basemap}
         overlayOn={overlayOn}
         view3d={view3d}
+        viewMode={viewMode}
+        referencePeriod={referencePeriod}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
         onInitialLoadComplete={finishInitialLoading}
         onDataLoaded={updateOoklaSummary}
         onMapDataLoaded={updateOoklaMapData}
+      />
+
+      <TimeLapsePlayer
+        periods={ooklaPeriods.periods}
+        currentPeriod={ooklaPeriod}
+        onSelectPeriod={(p) => setOoklaPeriod(p)}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
+        networkType={ooklaNetworkType}
+        onToggleNetworkType={toggleNetworkType}
+        hasReferencePeriod={hasReferencePeriod}
       />
 
       <header className="map-topbar">

@@ -1230,3 +1230,561 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .map-legend-bands { font-size: 9px; }
 }
 @media (forced-colors: active) { .map-region-option.is-active { outline: 2px solid Highlight; } }
+
+/* =====================================================================
+   FITUR BARU: TIME-LAPSE PLAYER, LEADERBOARD, KESENJANGAN & PERTUMBUHAN
+   ===================================================================== */
+
+/* ---------- Time-Lapse Player (Floating Bottom Dock) ---------- */
+.timelapse-dock {
+  position: absolute;
+  z-index: 10;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(680px, calc(100vw - 32px));
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 94%);
+  padding: 8px 14px;
+  box-shadow: 0 8px 30px rgb(30 48 42 / 16%);
+  backdrop-filter: blur(12px);
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+.map-workspace:has(.map-side-panel) .timelapse-dock {
+  left: calc(50% + 140px);
+  width: min(580px, calc(100vw - 420px));
+}
+
+.timelapse-dock.is-minimized {
+  width: auto;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.timelapse-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  border: 1px solid #d3e4dc;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 96%);
+  padding: 0 16px;
+  color: #1f5647;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgb(30 48 42 / 12%);
+  transition: background .15s ease, transform .15s ease;
+}
+.timelapse-pill-btn:hover {
+  background: #f0f7f3;
+  transform: translateY(-1px);
+}
+
+.timelapse-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timelapse-playback-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timelapse-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid #dce8e2;
+  border-radius: 8px;
+  background: #f5f9f7;
+  color: #3b5049;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.timelapse-btn:hover:not(:disabled) {
+  background: #e9f3ee;
+  border-color: #bad3c7;
+  color: #1a5e4b;
+}
+.timelapse-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.timelapse-play-btn {
+  width: 38px;
+  height: 38px;
+  border-color: #219074;
+  background: #279b7d;
+  color: #fff;
+  border-radius: 10px;
+}
+.timelapse-play-btn:hover:not(:disabled) {
+  background: #1e876c;
+  color: #fff;
+  border-color: #18755d;
+}
+.timelapse-play-btn.is-playing {
+  background: #c54330;
+  border-color: #ad3726;
+}
+.timelapse-play-btn.is-playing:hover:not(:disabled) {
+  background: #b13726;
+}
+
+.timelapse-scrubber-group {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timelapse-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timelapse-period-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #2b3e37;
+}
+.timelapse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #279b7d;
+  box-shadow: 0 0 0 3px #d6eee6;
+}
+.timelapse-period-badge strong {
+  font-weight: 700;
+  letter-spacing: -.2px;
+}
+.timelapse-period-badge small {
+  color: #7b8e86;
+  font-size: 11px;
+}
+
+.timelapse-speed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #edf4f0;
+  padding: 2px;
+  border-radius: 6px;
+}
+.timelapse-speed-btn {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 2px 7px;
+  color: #556962;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.timelapse-speed-btn.is-active {
+  background: #fff;
+  color: #1c6451;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.timelapse-slider-wrap {
+  width: 100%;
+}
+.timelapse-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  appearance: none;
+  background: #dce7e1;
+  outline: none;
+  cursor: pointer;
+}
+.timelapse-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #279b7d;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 20%);
+  cursor: grab;
+  transition: transform .12s ease;
+}
+.timelapse-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.timelapse-mode-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timelapse-delta-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  border: 1px solid #d8e5df;
+  border-radius: 8px;
+  background: #f6f9f7;
+  padding: 0 9px;
+  color: #4a5d56;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s ease;
+}
+.timelapse-delta-btn:hover:not(:disabled) {
+  background: #eef6f2;
+  border-color: #b7d6c8;
+  color: #175e4c;
+}
+.timelapse-delta-btn.is-active {
+  background: #e2f4ed;
+  border-color: #2ca284;
+  color: #13604d;
+  box-shadow: 0 0 0 1px #2ca284;
+}
+.timelapse-delta-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.timelapse-active-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #16a085;
+}
+
+.timelapse-network-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  border: 1px solid #dce8e2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 8px;
+  color: #475a53;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.timelapse-network-toggle:hover {
+  background: #f1f7f4;
+}
+
+.timelapse-minimize-btn {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #798d85;
+  cursor: pointer;
+}
+.timelapse-minimize-btn:hover {
+  background: #ebf2ee;
+  color: #384e46;
+}
+
+/* Responsive TimeLapse on Mobile */
+@media (max-width: 900px) {
+  .timelapse-dock {
+    bottom: 68px;
+    width: calc(100vw - 16px);
+    padding: 7px 10px;
+  }
+  .map-workspace:has(.map-side-panel) .timelapse-dock {
+    display: none;
+  }
+  .timelapse-delta-btn span {
+    display: none;
+  }
+  .timelapse-network-toggle span {
+    display: none;
+  }
+}
+
+/* ---------- Sub-Navigation Tabs in AnalysisPanel ---------- */
+.analysis-subnav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 14px;
+  border: 1px solid #e1ebe5;
+  border-radius: 10px;
+  background: #f4f8f6;
+  padding: 4px;
+}
+
+.analysis-subnav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 0 6px;
+  color: #556761;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.analysis-subnav-btn:hover {
+  background: #eaf1ed;
+  color: #2b3f38;
+}
+.analysis-subnav-btn.is-active {
+  background: #fff;
+  color: #15624e;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgb(20 40 32 / 8%);
+}
+
+@media (max-width: 700px) {
+  .analysis-subnav {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+}
+
+/* ---------- Leaderboard Cards (Tab 2) ---------- */
+.analysis-section-box {
+  border: 1px solid #e4ede8;
+  border-radius: 12px;
+  background: #fafcfb;
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.analysis-box-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.analysis-box-header strong {
+  display: block;
+  font-size: 13.5px;
+  color: #273933;
+}
+.analysis-box-header p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #72847c;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 7px;
+}
+
+.leaderboard-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e7eee9;
+  border-radius: 9px;
+  background: #fff;
+  padding: 9px 12px;
+  transition: border-color .15s ease;
+}
+.leaderboard-card:hover {
+  border-color: #bad3c8;
+}
+.leaderboard-card.is-national {
+  background: #f4f8f5;
+  border-color: #c9ded5;
+}
+
+.leaderboard-card-rank {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #485c54;
+}
+
+.leaderboard-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboard-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.leaderboard-name-row strong {
+  font-size: 12.5px;
+  color: #293d36;
+}
+.leaderboard-value {
+  font-size: 13px;
+  font-weight: 750;
+  color: #17604d;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-bar-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: #e9f0ec;
+  overflow: hidden;
+}
+.leaderboard-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .3s ease;
+}
+
+.leaderboard-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  color: #798b83;
+}
+.diff-positive {
+  color: #16a085;
+  font-style: normal;
+  font-weight: 600;
+}
+.diff-negative {
+  color: #d65e4d;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Chips in Multi-Region comparison */
+.analysis-chip-hint {
+  margin: 8px 0 6px;
+  font-size: 11px;
+  color: #6a7d75;
+}
+.analysis-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.analysis-region-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #d9e5df;
+  border-radius: 6px;
+  background: #fff;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #4f635b;
+  cursor: pointer;
+  transition: all .14s ease;
+}
+.analysis-region-chip:hover {
+  background: #f2f7f4;
+}
+.analysis-region-chip.is-active {
+  background: #eef6f2;
+  font-weight: 650;
+  color: #185c4b;
+}
+.analysis-region-chip span:first-child {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* ---------- Convergence Gap (Tab 3) & Growth (Tab 4) ---------- */
+.gap-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gap-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid #e3ede8;
+  border-radius: 10px;
+  background: #f7faf8;
+  padding: 10px 12px;
+}
+.gap-kpi-card span {
+  font-size: 10.5px;
+  color: #6a7e75;
+  font-weight: 600;
+}
+.gap-kpi-card strong {
+  font-size: 20px;
+  color: #1f5f4d;
+  font-weight: 750;
+}
+.gap-kpi-card small {
+  font-size: 10.5px;
+  color: #7b8e85;
+}
+
+.gap-status-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.growth-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.growth-badge.is-pos {
+  color: #15803d;
+  background: #dcfce7;
+}
+.growth-badge.is-neg {
+  color: #b91c1c;
+  background: #fee2e2;
+}

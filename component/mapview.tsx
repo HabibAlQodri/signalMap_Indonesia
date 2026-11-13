@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { formatNumber } from "../lib/network-data";
 import {
@@ -24,6 +24,7 @@ import Icon from "./icon";
 
 export type MapMetric = "download" | "upload" | "latency";
 export type Basemap = "light" | "voyager" | "dark";
+export type MapViewMode = "normal" | "delta";
 
 type FocusLocation = {
   name: string;
@@ -40,6 +41,8 @@ type MapViewProps = {
   basemap: Basemap;
   overlayOn: boolean;
   view3d?: boolean;
+  viewMode?: MapViewMode;
+  referencePeriod?: string | null;
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onInitialLoadComplete?: () => void;
@@ -47,29 +50,93 @@ type MapViewProps = {
   onMapDataLoaded: (data: OoklaData | null) => void;
 };
 
-function metricDetailsFor(data: OoklaData | null): Record<
+type LegendBand = { label: string; color: string };
+
+export function colorForDelta(pct: number) {
+  if (pct === 9999) return "#2563eb"; // Cakupan Baru
+  if (pct >= 50) return "#16a085"; // Peningkatan pesat
+  if (pct >= 15) return "#83b968"; // Peningkatan baik
+  if (pct >= -15) return "#e8ac48"; // Stabil
+  return "#d65e4d"; // Penurunan
+}
+
+function metricDetailsFor(data: OoklaData | null, viewMode: MapViewMode = "normal"): Record<
   MapMetric,
-  { label: string; unit: string; bands: [string, string, string, string]; average: string; ends: [string, string] }
+  { label: string; unit: string; bands: LegendBand[]; average: string; ends: [string, string] }
 > {
+  if (viewMode === "delta") {
+    const deltaBands: LegendBand[] = [
+      { label: "<-15%", color: "#d65e4d" },
+      { label: "±15%", color: "#e8ac48" },
+      { label: "+15–50%", color: "#83b968" },
+      { label: ">+50%", color: "#16a085" },
+      { label: "Baru", color: "#2563eb" },
+    ];
+    return {
+      download: {
+        label: "Pertumbuhan Unduh (YoY)",
+        unit: "% YoY",
+        bands: deltaBands,
+        average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
+        ends: ["Turun", "Naik"],
+      },
+      upload: {
+        label: "Pertumbuhan Unggah (YoY)",
+        unit: "% YoY",
+        bands: deltaBands,
+        average: data ? `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
+        ends: ["Turun", "Naik"],
+      },
+      latency: {
+        label: "Perbaikan Latensi (YoY)",
+        unit: "% YoY",
+        bands: [
+          { label: "Memburuk", color: "#d65e4d" },
+          { label: "Stabil", color: "#e8ac48" },
+          { label: "Membaik", color: "#83b968" },
+          { label: ">+50%", color: "#16a085" },
+          { label: "Baru", color: "#2563eb" },
+        ],
+        average: data ? `${data.avgLatencyMs.toLocaleString("id-ID")} ms` : "—",
+        ends: ["Memburuk", "Membaik"],
+      },
+    };
+  }
+
   return {
     download: {
       label: "Kecepatan unduh",
       unit: "Mbps",
-      bands: ["<20", "20–50", "50–100", ">100"],
+      bands: [
+        { label: "<20", color: "#d65e4d" },
+        { label: "20–50", color: "#e8ac48" },
+        { label: "50–100", color: "#83b968" },
+        { label: ">100", color: "#16a085" },
+      ],
       average: data ? `${(data.avgDownloadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
       ends: ["Rendah", "Tinggi"],
     },
     upload: {
       label: "Kecepatan unggah",
       unit: "Mbps",
-      bands: ["<20", "20–50", "50–100", ">100"],
+      bands: [
+        { label: "<20", color: "#d65e4d" },
+        { label: "20–50", color: "#e8ac48" },
+        { label: "50–100", color: "#83b968" },
+        { label: ">100", color: "#16a085" },
+      ],
       average: data ? `${(data.avgUploadKbps / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Mbps` : "—",
       ends: ["Rendah", "Tinggi"],
     },
     latency: {
       label: "Latensi",
       unit: "ms",
-      bands: [">100", "60–100", "30–60", "≤30"],
+      bands: [
+        { label: ">100", color: "#d65e4d" },
+        { label: "60–100", color: "#e8ac48" },
+        { label: "30–60", color: "#83b968" },
+        { label: "≤30", color: "#16a085" },
+      ],
       average: data ? `${data.avgLatencyMs.toLocaleString("id-ID")} ms` : "—",
       ends: ["Lambat", "Cepat"],
     },
@@ -150,7 +217,45 @@ function metersPerPixel(zoom: number, lat: number) {
   return (78271.517 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;
 }
 
-function buildBars(map: MapLibreMap, cells: Cell[], levels: Map<number, CellLevel>, metric: MapMetric) {
+export function makeReferenceIndex(cells: Cell[]): Map<string, Cell> {
+  const index = new Map<string, Cell>();
+  for (const c of cells) {
+    const k = `${c[0].toFixed(2)},${c[1].toFixed(2)}`;
+    if (!index.has(k)) index.set(k, c);
+  }
+  return index;
+}
+
+export function getCellDelta(
+  cell: Cell,
+  refIndex: Map<string, Cell> | null,
+  metric: MapMetric
+): { pct: number | null; prevValue: number | null } {
+  if (!refIndex || refIndex.size === 0) return { pct: null, prevValue: null };
+  const k = `${cell[0].toFixed(2)},${cell[1].toFixed(2)}`;
+  const prev = refIndex.get(k);
+  if (!prev) return { pct: 9999, prevValue: null };
+  const currVal = metricValue(cell, metric);
+  const prevVal = metricValue(prev, metric);
+  if (prevVal <= 0) return { pct: 9999, prevValue: null };
+  if (metric === "latency") {
+    // Latensi turun = koneksi membaik (persentase positif)
+    const pct = ((prevVal - currVal) / prevVal) * 100;
+    return { pct, prevValue: prevVal };
+  } else {
+    const pct = ((currVal - prevVal) / prevVal) * 100;
+    return { pct, prevValue: prevVal };
+  }
+}
+
+function buildBars(
+  map: MapLibreMap,
+  cells: Cell[],
+  levels: Map<number, CellLevel>,
+  metric: MapMetric,
+  viewMode: MapViewMode = "normal",
+  referenceIndex: Map<string, Cell> | null = null
+) {
   const zoom = map.getZoom();
   const index = levelIndexFor(zoom);
   const level = getLevel(levels, cells, index);
@@ -177,11 +282,18 @@ function buildBars(map: MapLibreMap, cells: Cell[], levels: Map<number, CellLeve
     const halfLat = half * Math.cos((lat * Math.PI) / 180);
     const norm = Math.log10(cell[5] + 1) / logMax;
     const value = metricValue(cell, metric);
+    let color: string;
+    if (viewMode === "delta" && referenceIndex) {
+      const delta = getCellDelta(cell, referenceIndex, metric);
+      color = delta.pct !== null ? colorForDelta(delta.pct) : colorForMetric(value, metric);
+    } else {
+      color = colorForMetric(value, metric);
+    }
     return {
       type: "Feature" as const,
       properties: {
         id: i,
-        color: colorForMetric(value, metric),
+        color,
         height: Math.max(maxHeight * 0.04, maxHeight * norm * norm),
         d: cell[2],
         u: cell[3],
@@ -241,6 +353,8 @@ export default function MapView({
   basemap,
   overlayOn,
   view3d = false,
+  viewMode = "normal",
+  referencePeriod = null,
   fullscreen = false,
   onToggleFullscreen,
   onInitialLoadComplete,
@@ -260,6 +374,11 @@ export default function MapView({
   const [mapReady, setMapReady] = useState(false);
   const [mapRendered, setMapRendered] = useState(false);
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
+  const [referenceData, setReferenceData] = useState<OoklaData | null>(null);
+  const refCache = useRef<Map<string, OoklaData>>(new Map());
+  const viewModeRef = useRef(viewMode);
+  const referenceIndexRef = useRef<Map<string, Cell> | null>(null);
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -283,6 +402,47 @@ export default function MapView({
 
   // Sel terpilih hanya relevan saat overlay aktif.
   const activeCell = overlayOn && data ? selectedCell : null;
+
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== "delta" || !referencePeriod) {
+      setReferenceData(null);
+      return;
+    }
+    const key = `${networkType}-${referencePeriod}`;
+    const cached = refCache.current.get(key);
+    if (cached) {
+      setReferenceData(cached);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/data/ookla/${networkType}-${referencePeriod}.json`, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error("Data pembanding gagal dimuat");
+        return res.json() as Promise<OoklaData>;
+      })
+      .then((res) => {
+        refCache.current.set(key, res);
+        setReferenceData(res);
+      })
+      .catch(() => {
+        setReferenceData(null);
+      });
+    return () => controller.abort();
+  }, [viewMode, referencePeriod, networkType]);
+
+  const referenceIndex = useMemo(() => {
+    if (!referenceData?.cells) return null;
+    return makeReferenceIndex(referenceData.cells);
+  }, [referenceData]);
+
+  useEffect(() => {
+    referenceIndexRef.current = referenceIndex;
+    drawRef.current?.();
+  }, [referenceIndex]);
 
   useEffect(() => {
     dataRef.current = data;
@@ -405,8 +565,23 @@ export default function MapView({
         return;
       }
       const value = metricValue(found, metricRef.current);
-      tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
-      tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
+      if (viewModeRef.current === "delta" && referenceIndexRef.current) {
+        const delta = getCellDelta(found, referenceIndexRef.current, metricRef.current);
+        if (delta.pct === 9999) {
+          tip.textContent = `${formatCellMetric(value, metricRef.current)} · Area Baru (YoY)`;
+          tip.style.setProperty("--tip-color", "#2563eb");
+        } else if (delta.pct !== null) {
+          const sign = delta.pct > 0 ? "+" : "";
+          tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${sign}${delta.pct.toFixed(1)}% YoY`;
+          tip.style.setProperty("--tip-color", colorForDelta(delta.pct));
+        } else {
+          tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
+          tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
+        }
+      } else {
+        tip.textContent = `${formatCellMetric(value, metricRef.current)} · ${formatNumber(found[5])} tes`;
+        tip.style.setProperty("--tip-color", colorForMetric(value, metricRef.current));
+      }
       tip.style.display = "block";
       tip.style.transform = `translate(${point.x + 14}px, ${point.y - 36}px)`;
     }
@@ -557,7 +732,13 @@ export default function MapView({
       forEachInBounds(level, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(), (cell) => {
         const point = currentMap.project([cell[0], cell[1]]);
         if (point.x < -pad || point.y < -pad || point.x > width + pad || point.y > height + pad) return;
-        const color = colorForMetric(metricValue(cell, metric), metric);
+        let color: string;
+        if (viewModeRef.current === "delta" && referenceIndexRef.current) {
+          const delta = getCellDelta(cell, referenceIndexRef.current, metric);
+          color = delta.pct !== null ? colorForDelta(delta.pct) : colorForMetric(metricValue(cell, metric), metric);
+        } else {
+          color = colorForMetric(metricValue(cell, metric), metric);
+        }
         const strength = Math.log10(cell[5] + 1);
         if (drawHeat) {
           context.globalAlpha = Math.max(0.07, Math.min(0.2, 0.065 + strength * 0.035));
@@ -649,7 +830,7 @@ export default function MapView({
       map.off("moveend", schedule);
       map.off("resize", schedule);
     };
-  }, [data, metric, overlayOn, activeCell, basemap, mapReady, view3d]);
+  }, [data, metric, overlayOn, activeCell, basemap, mapReady, view3d, viewMode, referenceIndex]);
 
   // Kamera: miringkan peta saat 3D aktif, kembalikan saat nonaktif.
   useEffect(() => {
@@ -678,7 +859,7 @@ export default function MapView({
 
     function refresh() {
       if (!map || !data) return;
-      const collection = buildBars(map, data.cells, levelsRef.current, metric);
+      const collection = buildBars(map, data.cells, levelsRef.current, metric, viewMode, referenceIndex);
       const source = map.getSource(SOURCE_3D) as { setData?: (d: unknown) => void } | undefined;
       if (source?.setData) {
         source.setData(collection);
@@ -704,7 +885,7 @@ export default function MapView({
     return () => {
       map.off("moveend", refresh);
     };
-  }, [data, metric, overlayOn, view3d, mapReady]);
+  }, [data, metric, overlayOn, view3d, mapReady, viewMode, referenceIndex]);
 
   // Tandai batang terpilih (putih) tanpa membangun ulang data.
   useEffect(() => {
@@ -758,7 +939,7 @@ export default function MapView({
   }
 
   const selectedMetric = activeCell ? metricValue(activeCell, metric) : null;
-  const metricDetails = metricDetailsFor(data);
+  const metricDetails = metricDetailsFor(data, viewMode);
   const details = metricDetails[metric];
   const periodLabel = data?.periodLabel ?? formatOoklaPeriod(period);
   const networkLabel = data?.networkLabel ?? formatOoklaNetworkType(networkType);
@@ -784,11 +965,29 @@ export default function MapView({
               {(["download", "upload", "latency"] as const).map((key) => {
                 const value = metricValue(activeCell, key);
                 const quality = qualityFor(value, key);
+                const delta = viewMode === "delta" ? getCellDelta(activeCell, referenceIndex, key) : null;
+                const rowColor = delta && delta.pct !== null ? colorForDelta(delta.pct) : quality.color;
                 return (
                   <div className={`map-cell-row ${key === metric ? "is-current" : ""}`} key={key}>
-                    <i style={{ background: quality.color }} />
-                    <span>{metricDetails[key].label}<em style={{ color: quality.color }}>{quality.label}</em></span>
-                    <strong>{formatCellMetric(value, key)}</strong>
+                    <i style={{ background: rowColor }} />
+                    <span>
+                      {metricDetails[key].label}
+                      {delta && delta.pct !== null ? (
+                        <em style={{ color: rowColor }}>
+                          {delta.pct === 9999 ? "Cakupan Baru (YoY)" : `${delta.pct > 0 ? "+" : ""}${delta.pct.toFixed(1)}% YoY`}
+                        </em>
+                      ) : (
+                        <em style={{ color: quality.color }}>{quality.label}</em>
+                      )}
+                    </span>
+                    <div style={{ textAlign: "right" }}>
+                      <strong>{formatCellMetric(value, key)}</strong>
+                      {delta && delta.prevValue !== null && delta.pct !== 9999 && (
+                        <div style={{ fontSize: "10.5px", color: "#84928b" }}>
+                          Thn lalu: {formatCellMetric(delta.prevValue, key)}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -854,17 +1053,25 @@ export default function MapView({
           <strong>{details.label}</strong>
           <span>{details.unit}</span>
         </div>
-        <div className="map-legend-colors">
-          {details.bands.map((band) => <i key={band} />)}
+        <div className="map-legend-colors" style={{ display: "flex", gap: "2px", height: "8px" }}>
+          {details.bands.map((band) => (
+            <i key={band.label} style={{ flex: 1, background: band.color, borderRadius: "2px" }} />
+          ))}
         </div>
-        <div className="map-legend-bands">
-          {details.bands.map((band) => <span key={band}>{band}</span>)}
+        <div className="map-legend-bands" style={{ display: "flex", justifyContent: "space-between", gap: "2px", fontSize: "9px" }}>
+          {details.bands.map((band) => <span key={band.label}>{band.label}</span>)}
         </div>
         <div className="map-legend-ends">
           <span>{details.ends[0]}</span>
           <span>{details.ends[1]}</span>
         </div>
-        <p className="map-legend-note">{view3d ? "Tinggi batang = jumlah tes · warna = metrik · klik kanan + geser untuk memutar" : "Titik = sel ukur · klik untuk detail"}</p>
+        <p className="map-legend-note">
+          {viewMode === "delta"
+            ? "Peta Pertumbuhan YoY · Biru = area baru · Klik titik untuk perbandingan"
+            : view3d
+            ? "Tinggi batang = jumlah tes · warna = metrik · klik kanan + geser untuk memutar"
+            : "Titik = sel ukur · klik untuk detail"}
+        </p>
       </div>
 
       <div className="map-hud" aria-hidden="true">
