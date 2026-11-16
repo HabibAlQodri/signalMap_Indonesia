@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Icon from "./icon";
-import { useLanguage } from "../lib/i18n";
+import Icon from "../ui/icon";
+import { useLanguage } from "../../lib/i18n";
 
 type TimeLapsePlayerProps = {
   periods: { value: string; label: string }[];

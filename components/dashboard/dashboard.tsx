@@ -3,20 +3,20 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { formatNumber, regions } from "../lib/network-data";
-import { useLanguage } from "../lib/i18n";
-import ooklaPeriods from "../lib/ookla-periods.json";
+import { formatNumber, regions } from "../../lib/network-data";
+import { useLanguage } from "../../lib/i18n";
+import ooklaPeriods from "../../lib/ookla/ookla-periods.json";
 import {
   type OoklaMetadata,
   type OoklaData,
   type OoklaNetworkType,
   formatOoklaNetworkType,
   formatOoklaPeriod,
-} from "../lib/ookla-data";
-import Icon, { type IconName } from "./icon";
-import MapView, { type Basemap, type MapMetric, type MapViewMode } from "./mapview";
-import AnalysisPanel from "./analysis-panel";
-import TimeLapsePlayer from "./timelapse-player";
+} from "../../lib/ookla/ookla-data";
+import Icon, { type IconName } from "../ui/icon";
+import MapView, { type Basemap, type MapMetric, type MapViewMode } from "../map/mapview";
+import AnalysisPanel from "../analysis/analysis-panel";
+import TimeLapsePlayer from "../timeline/timelapse-player";
 
 type PanelName = "layers" | "analysis" | "visualization";
 
@@ -72,7 +72,7 @@ export default function Dashboard() {
   const { t, locale } = useLanguage();
   const numberLocale = locale === "en" ? "en-US" : "id-ID";
   const [initialLoading, setInitialLoading] = useState(true);
-  const [panel, setPanel] = useState<PanelName | null>("analysis");
+  const [panel, setPanel] = useState<PanelName | null>(null);
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
   const [ooklaNetworkType, setOoklaNetworkType] = useState<OoklaNetworkType>("mobile");
   const [ooklaPeriod, setOoklaPeriod] = useState(ooklaPeriods.latestPeriod);

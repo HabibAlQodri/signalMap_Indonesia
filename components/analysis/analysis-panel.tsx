@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
-import analysisData from "../lib/ookla-analysis.json";
-import { formatNumber } from "../lib/network-data";
-import type { MapMetric } from "./mapview";
-import Icon from "./icon";
-import { useLanguage } from "../lib/i18n";
+import analysisData from "../../lib/ookla/ookla-analysis.json";
+import { formatNumber } from "../../lib/network-data";
+import type { MapMetric } from "../map/mapview";
+import Icon from "../ui/icon";
+import { useLanguage } from "../../lib/i18n";
 
 type PeriodMode = "year" | "quarter";
 type ChartMode = "performance" | "tests";

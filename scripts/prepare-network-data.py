@@ -10,8 +10,8 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[1]
 OOKLA_DATA_DIR = ROOT / "lib" / "data_ookla"
 OOKLA_OUTPUT_DIR = ROOT / "public" / "data" / "ookla"
-OOKLA_PERIODS_PATH = ROOT / "lib" / "ookla-periods.json"
-OOKLA_ANALYSIS_PATH = ROOT / "lib" / "ookla-analysis.json"
+OOKLA_PERIODS_PATH = ROOT / "lib" / "ookla" / "ookla-periods.json"
+OOKLA_ANALYSIS_PATH = ROOT / "lib" / "ookla" / "ookla-analysis.json"
 OOKLA_BOUNDS = {"west": 90, "south": -15, "east": 145, "north": 15}
 OOKLA_MODES = ("mobile", "fixed")
 OOKLA_ANALYSIS_REGIONS = [

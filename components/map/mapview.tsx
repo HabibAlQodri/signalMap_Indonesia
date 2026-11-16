@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { formatNumber } from "../lib/network-data";
+import { formatNumber } from "../../lib/network-data";
 import {
   type Cell,
   type CellLevel,
@@ -12,16 +12,16 @@ import {
   forEachInBounds,
   getLevel,
   levelIndexFor,
-} from "../lib/cell-index";
+} from "../../lib/map/cell-index";
 import {
   type OoklaData,
   type OoklaMetadata,
   type OoklaNetworkType,
   formatOoklaNetworkType,
   formatOoklaPeriod,
-} from "../lib/ookla-data";
-import Icon from "./icon";
-import { useLanguage } from "../lib/i18n";
+} from "../../lib/ookla/ookla-data";
+import Icon from "../ui/icon";
+import { useLanguage } from "../../lib/i18n";
 
 export type MapMetric = "download" | "upload" | "latency";
 export type Basemap = "light" | "voyager" | "dark";

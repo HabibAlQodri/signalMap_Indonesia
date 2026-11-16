@@ -1,4 +1,4 @@
-import type { Cell } from "./cell-index";
+import type { Cell } from "../map/cell-index";
 
 export type OoklaNetworkType = "mobile" | "fixed";
 

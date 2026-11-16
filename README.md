@@ -38,4 +38,4 @@ python -m pip install duckdb
 python scripts/prepare-network-data.py
 ```
 
-Skrip menghasilkan ringkasan periode di `lib/ookla-periods.json`, analisis historis di `lib/ookla-analysis.json`, dan satu JSON agregat peta per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy. Jika Parquet sudah dipindahkan tetapi semua JSON agregat masih tersedia, indeks analisis dapat dibuat ulang dengan `python scripts/prepare-network-data.py --analysis-only`.
+Skrip menghasilkan ringkasan periode di `lib/ookla/ookla-periods.json`, analisis historis di `lib/ookla/ookla-analysis.json`, dan satu JSON agregat peta per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy. Jika Parquet sudah dipindahkan tetapi semua JSON agregat masih tersedia, indeks analisis dapat dibuat ulang dengan `python scripts/prepare-network-data.py --analysis-only`.
