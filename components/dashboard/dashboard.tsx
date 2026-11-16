@@ -9,6 +9,7 @@ import ooklaPeriods from "../../lib/ookla/ookla-periods.json";
 import {
   type OoklaMetadata,
   type OoklaData,
+  type OoklaLatencyDirection,
   type OoklaNetworkType,
   formatOoklaNetworkType,
   formatOoklaPeriod,
@@ -31,7 +32,12 @@ const panelItems: { value: PanelName; label: string; short: string; icon: IconNa
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
 ];
 
-function metricReading(metric: MapMetric, data: OoklaMetadata | null, locale = "id-ID") {
+function metricReading(
+  metric: MapMetric,
+  data: OoklaMetadata | null,
+  locale = "id-ID",
+  latencyDirection: OoklaLatencyDirection = "average",
+) {
   if (!data) return "—";
   if (metric === "download") {
     return `${(data.avgDownloadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps`;
@@ -39,12 +45,17 @@ function metricReading(metric: MapMetric, data: OoklaMetadata | null, locale = "
   if (metric === "upload") {
     return `${(data.avgUploadKbps / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })} Mbps`;
   }
-  return `${data.avgLatencyMs.toLocaleString(locale)} ms`;
+  const latency = latencyDirection === "down"
+    ? data.avgLatencyDownMs ?? data.avgLatencyMs
+    : latencyDirection === "up"
+      ? data.avgLatencyUpMs ?? data.avgLatencyMs
+      : data.avgLatencyMs;
+  return `${latency.toLocaleString(locale)} ms`;
 }
 
 function downloadMapCsv(data: OoklaData) {
   const rows = [
-    ["periode", "jaringan", "longitude", "latitude", "unduh_mbps", "unggah_mbps", "latensi_ms", "tes", "perangkat", "jumlah_sel_gabungan"],
+    ["periode", "jaringan", "longitude", "latitude", "unduh_mbps", "unggah_mbps", "latensi_ms", "tes", "perangkat", "jumlah_sel_gabungan", "latensi_unduh_ms", "latensi_unggah_ms"],
     ...data.cells.map((cell) => [
       data.periodLabel,
       data.networkLabel,
@@ -56,6 +67,8 @@ function downloadMapCsv(data: OoklaData) {
       cell[5],
       cell[6],
       cell[7] ?? 1,
+      cell[8] ?? cell[4],
+      cell[9] ?? cell[4],
     ]),
   ].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", rows], { type: "text/csv;charset=utf-8" }));
@@ -74,6 +87,8 @@ export default function Dashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [mapMetric, setMapMetric] = useState<MapMetric>("download");
+  const [latencyDirection, setLatencyDirection] = useState<OoklaLatencyDirection>("down");
+  const [minTests, setMinTests] = useState(0);
   const [ooklaNetworkType, setOoklaNetworkType] = useState<OoklaNetworkType>("mobile");
   const [ooklaPeriod, setOoklaPeriod] = useState(ooklaPeriods.latestPeriod);
   const [loadedOoklaSummary, setLoadedOoklaSummary] = useState<OoklaMetadata | null>(null);
@@ -86,6 +101,11 @@ export default function Dashboard() {
     loadedOoklaMapData?.networkType === ooklaNetworkType && loadedOoklaMapData.period === ooklaPeriod
       ? loadedOoklaMapData
       : null;
+  const exportOoklaData = useMemo(() => {
+    if (!ooklaMapData) return null;
+    const cells = minTests > 0 ? ooklaMapData.cells.filter((cell) => cell[5] >= minTests) : ooklaMapData.cells;
+    return { ...ooklaMapData, cells, aggregatedCells: cells.length };
+  }, [ooklaMapData, minTests]);
   const [basemap, setBasemap] = useState<Basemap>("voyager");
   const [overlayOn, setOverlayOn] = useState(true);
   const [view3d, setView3d] = useState(false);
@@ -268,7 +288,9 @@ export default function Dashboard() {
     if (panel) panelCloseRef.current?.focus();
   }, [panel]);
 
-  const metricLabel = t(metrics.find((item) => item.value === mapMetric)?.label ?? "");
+  const metricLabel = mapMetric === "latency"
+    ? t(latencyDirection === "down" ? "Latensi unduh" : latencyDirection === "up" ? "Latensi unggah" : "Latensi rata-rata")
+    : t(metrics.find((item) => item.value === mapMetric)?.label ?? "");
   const announcement = `${metricLabel} ${locale === "en" ? "shown" : "ditampilkan"}${view3d ? `, ${t("Tampilan 3D")} ${locale === "en" ? "on" : "aktif"}` : ""}.`;
 
   // Navigasi panah pada grup metrik (pola radiogroup).
@@ -346,17 +368,28 @@ export default function Dashboard() {
               <span>{t("Data yang ditampilkan")}</span>
               <strong>{ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}</strong>
               <small>{ooklaSummary ? `${formatNumber(ooklaSummary.tests, numberLocale)} ${t("tes")} · ${formatNumber(ooklaSummary.devices, numberLocale)} ${t("perangkat")}` : t("Jumlah tes dimuat bersama data peta")}</small>
+              <small>{ooklaMapData ? `${formatNumber(ooklaMapData.cells.filter((cell) => cell[5] >= minTests).length, numberLocale)} / ${formatNumber(ooklaMapData.aggregatedCells, numberLocale)} ${t("tile ditampilkan")}` : ""}</small>
             </div>
+            <label className="map-confidence-control">
+              <span>{t("Minimum tes per tile")}</span>
+              <select aria-label={t("Filter minimum tes per tile")} onChange={(event) => setMinTests(Number(event.target.value))} value={minTests}>
+                <option value={0}>{t("Semua tile")}</option>
+                <option value={10}>≥ 10 {t("tes")}</option>
+                <option value={50}>≥ 50 {t("tes")}</option>
+                <option value={100}>≥ 100 {t("tes")}</option>
+              </select>
+              <small>{t("Tile sampel rendah ditandai di detail; filter menyembunyikan tile di bawah ambang.")}</small>
+            </label>
             <button
               className="map-export-button map-data-export"
-              disabled={!ooklaMapData}
-              onClick={() => ooklaMapData && downloadMapCsv(ooklaMapData)}
+              disabled={!exportOoklaData?.aggregatedCells}
+              onClick={() => exportOoklaData && downloadMapCsv(exportOoklaData)}
               type="button"
             >
               <Icon name="download" size={14} />
-              {t("Ekspor {count} sel peta CSV", { count: formatNumber(ooklaMapData?.aggregatedCells ?? 0, numberLocale) })}
+              {t("Ekspor {count} sel peta CSV", { count: formatNumber(exportOoklaData?.aggregatedCells ?? 0, numberLocale) })}
             </button>
-            <p className="map-panel-footnote">{t("Ekspor berisi sel quadkey agregat untuk jaringan dan periode terpilih, bukan tes individual.")}</p>
+            <p className="map-panel-footnote">{t("Ekspor berisi sel quadkey agregat yang lolos filter untuk jaringan dan periode terpilih, bukan tes individual.")}</p>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
               <span><strong>{t("Hasil pengukuran")}</strong><small>{overlayOn ? t("Overlay {network} aktif", { network: (ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID") }) : t("Overlay disembunyikan")}</small></span>
@@ -390,10 +423,24 @@ export default function Dashboard() {
                   onClick={() => setMapMetric(metric.value)}
                 >
                   <span>{metric.value === "download" ? "↓" : metric.value === "upload" ? "↑" : "◷"}</span>
-                  <span>{t(metric.short)}<small>{metricReading(metric.value, ooklaSummary, numberLocale)}</small></span>
+                  <span>{metric.value === "latency" ? t(latencyDirection === "down" ? "Latensi unduh" : latencyDirection === "up" ? "Latensi unggah" : "Latensi rata-rata") : t(metric.short)}<small>{metricReading(metric.value, ooklaSummary, numberLocale, latencyDirection)}</small></span>
                 </button>
               ))}
             </div>
+            {mapMetric === "latency" && (
+              <label className="map-confidence-control">
+                <span>{t("Komponen latensi")}</span>
+                <select
+                  aria-label={t("Pilih komponen latensi")}
+                  onChange={(event) => setLatencyDirection(event.target.value as OoklaLatencyDirection)}
+                  value={latencyDirection}
+                >
+                  <option value="down" disabled={!ooklaSummary?.avgLatencyDownMs}>{t("Latensi unduh")}</option>
+                  <option value="up" disabled={!ooklaSummary?.avgLatencyUpMs}>{t("Latensi unggah")}</option>
+                  <option value="average">{t("Latensi rata-rata")}</option>
+                </select>
+              </label>
+            )}
             <p className="map-option-hint">{t("Titik menandai sel ukur; halo warna membantu menghubungkan hasil di area berdekatan. Klik titik untuk detail.")}</p>
           </div>
 
@@ -441,10 +488,12 @@ export default function Dashboard() {
       <MapView
         focusLocation={focusLocation}
         metric={mapMetric}
+        latencyDirection={latencyDirection}
         networkType={ooklaNetworkType}
         period={ooklaPeriod}
         basemap={basemap}
         overlayOn={overlayOn}
+        minTests={minTests}
         view3d={view3d}
         viewMode={viewMode}
         referencePeriod={referencePeriod}
@@ -575,7 +624,7 @@ export default function Dashboard() {
             {metrics.map((metric, i) => (
               <button
                 aria-checked={mapMetric === metric.value}
-                aria-label={`${t(metric.label)}: ${locale === "en" ? "average" : "rata-rata"} ${metricReading(metric.value, ooklaSummary, numberLocale)}`}
+                aria-label={`${metric.value === "latency" ? t(latencyDirection === "down" ? "Latensi unduh" : latencyDirection === "up" ? "Latensi unggah" : "Latensi rata-rata") : t(metric.label)}: ${metricReading(metric.value, ooklaSummary, numberLocale, latencyDirection)}`}
                 className={mapMetric === metric.value ? "is-active" : ""}
                 key={metric.value}
                 onClick={() => setMapMetric(metric.value)}
@@ -585,8 +634,8 @@ export default function Dashboard() {
                 title={metric.label}
                 type="button"
               >
-                <span aria-hidden="true">{t(metric.short)}</span>
-                <strong aria-hidden="true">{metricReading(metric.value, ooklaSummary, numberLocale)}</strong>
+                <span aria-hidden="true">{metric.value === "latency" ? t(latencyDirection === "down" ? "Latensi unduh" : latencyDirection === "up" ? "Latensi unggah" : "Latensi rata-rata") : t(metric.short)}</span>
+                <strong aria-hidden="true">{metricReading(metric.value, ooklaSummary, numberLocale, latencyDirection)}</strong>
               </button>
             ))}
           </div>

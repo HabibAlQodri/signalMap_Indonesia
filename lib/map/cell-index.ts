@@ -1,9 +1,7 @@
 /**
  * Indeks spasial + klaster per level zoom untuk sel pengukuran Ookla.
  *
- * Format sel: [lng, lat, unduh(kbps), unggah(kbps), latensi(ms), tes, perangkat, jumlahSel?]
- * - Sel mentah punya 7 elemen.
- * - Sel klaster (hasil agregasi) punya elemen ke-8 = jumlah sel yang digabung.
+ * Format sel: [lng, lat, unduh, unggah, latensi, tes, perangkat, jumlahSel, latensiUnduh, latensiUnggah]
  *
  * Tujuannya: jumlah titik yang digambar per frame dibatasi oleh ukuran layar, bukan oleh
  * jumlah total data. Level dibangun malas (lazy) dan di-cache.
@@ -62,7 +60,7 @@ export function makeLevel(cells: Cell[]): CellLevel {
 /** Gabungkan sel ke dalam bin ±10–20px pada level zoom tertentu (rata-rata tertimbang jumlah tes). */
 export function buildClusters(cells: Cell[], level: number): Cell[] {
   const bin = BIN_PIXELS / (512 * 2 ** level);
-  // [bobot, Σlng·w, Σlat·w, Σunduh·w, Σunggah·w, Σlatensi·w, Σtes, Σperangkat, jumlahSel]
+  // [bobot, Σlng·w, Σlat·w, Σunduh·w, Σunggah·w, Σlatensi·w, Σtes, Σperangkat, jumlahSel, ΣlatensiUnduh·w, ΣlatensiUnggah·w]
   const groups = new Map<number, number[]>();
   for (const cell of cells) {
     const mx = (cell[0] + 180) / 360;
@@ -72,7 +70,7 @@ export function buildClusters(cells: Cell[], level: number): Cell[] {
     const weight = cell[5] > 0 ? cell[5] : 1;
     let group = groups.get(key);
     if (!group) {
-      group = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      group = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       groups.set(key, group);
     }
     group[0] += weight;
@@ -84,6 +82,8 @@ export function buildClusters(cells: Cell[], level: number): Cell[] {
     group[6] += cell[5];
     group[7] += cell[6];
     group[8] += 1;
+    group[9] += (cell[8] ?? cell[4]) * weight;
+    group[10] += (cell[9] ?? cell[4]) * weight;
   }
   const result: Cell[] = [];
   for (const g of groups.values()) {
@@ -96,6 +96,8 @@ export function buildClusters(cells: Cell[], level: number): Cell[] {
       g[6],
       g[7],
       g[8],
+      Math.round(g[9] / g[0]),
+      Math.round(g[10] / g[0]),
     ]);
   }
   return result;

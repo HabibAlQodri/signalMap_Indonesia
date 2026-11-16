@@ -25,17 +25,17 @@ Jangan gunakan `next start` untuk deployment Cloudflare Pages static.
 
 ## Data yang digunakan
 
-- `lib/data_ookla`: sumber Parquet Ookla mobile dan fixed per kuartal. Skrip memilih lima tahun mundur dari periode terbaru yang tersedia; berkas saat ini mencakup 2021-10 sampai 2026-07 (20 kuartal, karena periode 2021-07 tidak tersedia). Data dibatasi ke area sekitar Indonesia (bujur 90–145°, lintang -15–15°), lalu diagregasi ke quadkey level 12 dengan bobot jumlah tes. Peta memuat hanya satu jenis jaringan dan satu periode yang dipilih.
+- `lib/ookla`: lokasi berkas sumber Parquet Ookla mobile dan fixed per kuartal jika data tersebut tersedia. Skrip memilih lima tahun mundur dari periode terbaru yang tersedia, membatasi data ke area sekitar Indonesia (bujur 90–145°, lintang -15–15°), lalu mengagregasikannya ke quadkey level 12 dengan bobot jumlah tes.
 
-Peta berfokus pada tren performa Ookla mobile/fixed dalam grafik garis atau volume tes dan tabel tahunan/kuartalan. Statistik tren dan ringkasan dapat diekspor sebagai CSV, PNG, JPG, atau PDF; tabel analisis juga dapat diekspor dalam keempat format tersebut. Sel agregat pada peta dapat diekspor sebagai CSV. Filter wilayah analisis memakai kotak koordinat perkiraan (bukan batas administrasi); periode mengikuti arsip lokal Ookla, bukan pengukuran langsung.
+Tile peta menyimpan jumlah tes/perangkat dan rata-rata latensi, latensi unduh, serta latensi unggah. Filter minimum tes membantu menyaring tile dengan sampel rendah. Pengguna dapat berganti antara Mobile dan Fixed broadband. Agregasi wilayah analisis masih memakai kotak koordinat perkiraan; batas administratif belum tersedia untuk spatial join. Periode mengikuti arsip lokal Ookla, bukan pengukuran langsung.
 
 ## Membangun ulang data turunan
 
-File JSON yang dipakai dashboard dibuat dari berkas sumber di `lib`. Letakkan berkas Ookla bernama `YYYY-MM-DD_performance_mobile_tiles.parquet` dan `YYYY-MM-DD_performance_fixed_tiles.parquet` di `lib/data_ookla`, lalu pasang Python dan DuckDB dan jalankan:
+File JSON ringkas yang dipakai dashboard dibuat dari berkas sumber. Skrip membaca setiap Parquet yang diletakkan langsung di `lib/ookla` satu per satu; jangan salin seluruh arsip mentah ke `public`. Pasang Python dan DuckDB, lalu jalankan:
 
 ```bash
 python -m pip install duckdb
 python scripts/prepare-network-data.py
 ```
 
-Skrip menghasilkan ringkasan periode di `lib/ookla/ookla-periods.json`, analisis historis di `lib/ookla/ookla-analysis.json`, dan satu JSON agregat peta per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy. Jika Parquet sudah dipindahkan tetapi semua JSON agregat masih tersedia, indeks analisis dapat dibuat ulang dengan `python scripts/prepare-network-data.py --analysis-only`.
+Skrip menghasilkan ringkasan periode di `lib/ookla/ookla-periods.json`, analisis historis di `lib/ookla/ookla-analysis.json`, dan satu JSON agregat peta per jenis jaringan/periode di `public/data/ookla`. Data Parquet mentah tidak ikut di-deploy. Untuk membangun ulang seluruh JSON, pulihkan atau letakkan Parquet langsung di `lib/ookla`; jika hanya ingin membuat ulang indeks analisis dan JSON agregat sudah tersedia, jalankan `python scripts/prepare-network-data.py --analysis-only`.

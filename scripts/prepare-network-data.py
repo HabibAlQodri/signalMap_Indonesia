@@ -8,7 +8,7 @@ import duckdb
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OOKLA_DATA_DIR = ROOT / "lib" / "data_ookla"
+OOKLA_DATA_DIR = ROOT / "lib" / "ookla"
 OOKLA_OUTPUT_DIR = ROOT / "public" / "data" / "ookla"
 OOKLA_PERIODS_PATH = ROOT / "lib" / "ookla" / "ookla-periods.json"
 OOKLA_ANALYSIS_PATH = ROOT / "lib" / "ookla" / "ookla-analysis.json"
@@ -65,6 +65,8 @@ def build_ookla_data() -> None:
             sum(avg_d_kbps * tests) / sum(tests) AS download_kbps,
             sum(avg_u_kbps * tests) / sum(tests) AS upload_kbps,
             sum(avg_lat_ms * tests) / sum(tests) AS latency_ms,
+            sum(coalesce(avg_lat_down_ms, avg_lat_ms) * tests) / sum(tests) AS latency_down_ms,
+            sum(coalesce(avg_lat_up_ms, avg_lat_ms) * tests) / sum(tests) AS latency_up_ms,
             sum(tests) AS tests,
             sum(devices) AS devices,
             count(*) AS records
@@ -98,12 +100,14 @@ def build_ookla_data() -> None:
                         f"No Ookla {mode} records inside the configured region for {period}"
                     )
 
-                total_tests = sum(row[6] for row in grouped)
-                total_devices = sum(row[7] for row in grouped)
-                record_count = sum(row[8] for row in grouped)
-                avg_download_kbps = sum(row[3] * row[6] for row in grouped) / total_tests
-                avg_upload_kbps = sum(row[4] * row[6] for row in grouped) / total_tests
-                avg_latency_ms = sum(row[5] * row[6] for row in grouped) / total_tests
+                total_tests = sum(row[8] for row in grouped)
+                total_devices = sum(row[9] for row in grouped)
+                record_count = sum(row[10] for row in grouped)
+                avg_download_kbps = sum(row[3] * row[8] for row in grouped) / total_tests
+                avg_upload_kbps = sum(row[4] * row[8] for row in grouped) / total_tests
+                avg_latency_ms = sum(row[5] * row[8] for row in grouped) / total_tests
+                avg_latency_down_ms = sum(row[6] * row[8] for row in grouped) / total_tests
+                avg_latency_up_ms = sum(row[7] * row[8] for row in grouped) / total_tests
                 cells = [
                     [
                         round(longitude, 5),
@@ -113,6 +117,9 @@ def build_ookla_data() -> None:
                         round(latency_ms, 1),
                         tests,
                         devices,
+                        1,
+                        round(latency_down_ms, 1),
+                        round(latency_up_ms, 1),
                     ]
                     for (
                         _,
@@ -121,6 +128,8 @@ def build_ookla_data() -> None:
                         download_kbps,
                         upload_kbps,
                         latency_ms,
+                        latency_down_ms,
+                        latency_up_ms,
                         tests,
                         devices,
                         _,
@@ -141,6 +150,8 @@ def build_ookla_data() -> None:
                         "avgDownloadKbps": round(avg_download_kbps),
                         "avgUploadKbps": round(avg_upload_kbps),
                         "avgLatencyMs": round(avg_latency_ms, 1),
+                        "avgLatencyDownMs": round(avg_latency_down_ms, 1),
+                        "avgLatencyUpMs": round(avg_latency_up_ms, 1),
                         "aggregatedCells": len(cells),
                         "aggregation": "Tests-weighted average in level-12 quadkey cells",
                         "cells": cells,
@@ -182,9 +193,11 @@ def build_ookla_analysis() -> None:
             north = region["bounds"]["north"]
             total_tests = total_devices = 0
             weighted_download = weighted_upload = weighted_latency = 0
+            weighted_latency_down = weighted_latency_up = 0
             cell_count = 0
             for cell in dataset["cells"]:
-                longitude, latitude, download, upload, latency, tests, devices = cell
+                longitude, latitude, download, upload, latency, tests, devices = cell[:7]
+                latency_down, latency_up = cell[8:10]
                 if not (west <= longitude <= east and south <= latitude <= north):
                     continue
                 total_tests += tests
@@ -192,6 +205,8 @@ def build_ookla_analysis() -> None:
                 weighted_download += download * tests
                 weighted_upload += upload * tests
                 weighted_latency += latency * tests
+                weighted_latency_down += latency_down * tests
+                weighted_latency_up += latency_up * tests
                 cell_count += 1
             if not total_tests:
                 continue
@@ -209,6 +224,8 @@ def build_ookla_analysis() -> None:
                     "avgDownloadKbps": weighted_download / total_tests,
                     "avgUploadKbps": weighted_upload / total_tests,
                     "avgLatencyMs": weighted_latency / total_tests,
+                    "avgLatencyDownMs": weighted_latency_down / total_tests,
+                    "avgLatencyUpMs": weighted_latency_up / total_tests,
                 }
             )
     if not entries:

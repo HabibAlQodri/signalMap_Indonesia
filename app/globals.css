@@ -501,6 +501,9 @@ body { background: #dce8e7; }
 .ookla-data-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px; }
 .ookla-data-selects label { display: grid; min-width: 0; gap: 4px; color: #7e8d87; font-size: 8px; font-weight: 600; }
 .ookla-data-selects select { width: 100%; min-width: 0; height: 31px; border: 1px solid #e7ece8; border-radius: 6px; background: #fff; padding: 0 7px; color: #586a63; cursor: pointer; font-size: 8px; }
+.map-confidence-control { display: grid; gap: 5px; margin: 8px 0; color: #7e8d87; font-size: 8px; font-weight: 600; }
+.map-confidence-control select { width: 100%; height: 31px; border: 1px solid #e7ece8; border-radius: 6px; background: #fff; padding: 0 7px; color: #586a63; cursor: pointer; font-size: 9px; }
+.map-confidence-control small { color: #99a39e; font-size: 8px; font-weight: 400; line-height: 1.45; }
 .metric-choice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .metric-choice-grid button { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 6px; border: 1px solid #e7ece8; border-radius: 7px; background: #fff; color: #65756f; cursor: pointer; font-size: 9px; }
 .metric-choice-grid button > span:first-child { color: #81958c; font-size: 13px; }
@@ -978,6 +981,7 @@ body { background: #dce8e7; }
 .map-cell-popup-head small { color: #85938d; font-size: 10.5px; font-variant-numeric: tabular-nums; }
 .map-cell-popup-head button { display: grid; width: 26px; height: 26px; margin: -3px -4px 0 0; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #7c8b85; cursor: pointer; }
 .map-cell-popup-head button:hover { background: #eff3f0; color: #34524a; }
+.map-confidence-badge { display: inline-flex; margin: -2px 0 7px; border-radius: 20px; background: #fff4df; padding: 4px 8px; color: #9c6715; font-size: 9px; font-weight: 620; }
 .map-cell-metrics { display: grid; gap: 3px; }
 .map-cell-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 9px; border-radius: 8px; padding: 7px 8px; }
 .map-cell-row.is-current { background: #f0f7f3; }

@@ -1,6 +1,7 @@
 import type { Cell } from "../map/cell-index";
 
 export type OoklaNetworkType = "mobile" | "fixed";
+export type OoklaLatencyDirection = "average" | "down" | "up";
 
 export type OoklaMetadata = {
   source: string;
@@ -15,6 +16,8 @@ export type OoklaMetadata = {
   avgDownloadKbps: number;
   avgUploadKbps: number;
   avgLatencyMs: number;
+  avgLatencyDownMs?: number;
+  avgLatencyUpMs?: number;
   aggregatedCells: number;
   aggregation: string;
 };
