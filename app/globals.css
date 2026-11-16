@@ -891,8 +891,8 @@ body { background: #dce8e7; }
 .map-coverage-bars > div > strong { font-size: 11px; font-variant-numeric: tabular-nums; }
 .map-coverage-bars i { height: 6px; }
 
-/* ---------- Kontrol peta (kanan-bawah) ---------- */
-.map-control-stack { position: absolute; z-index: 6; right: 14px; bottom: 48px; display: grid; gap: 8px; }
+/* ---------- Kontrol peta (kanan-atas, di bawah bar metrik) ---------- */
+.map-control-stack { position: absolute; z-index: 6; top: 88px; right: 14px; bottom: auto; display: grid; gap: 8px; }
 .map-control-group { display: grid; overflow: hidden; border: 1px solid rgb(255 255 255 / 88%); border-radius: 11px; background: rgb(255 255 255 / 96%); box-shadow: 0 4px 18px rgb(34 53 60 / 14%); }
 .map-control-group button { display: grid; width: 42px; height: 42px; place-items: center; border: 0; background: transparent; color: #4f6560; cursor: pointer; transition: background .14s ease, color .14s ease; }
 .map-control-group button + button { border-top: 1px solid #e9eeeb; }
@@ -902,7 +902,7 @@ body { background: #dce8e7; }
 
 /* ---------- Legenda ---------- */
 .map-legend.map-floating-card,
-.map-workspace:has(.map-side-panel) .map-legend.map-floating-card { right: 68px; bottom: 48px; width: 236px; padding: 12px 13px 10px; }
+.map-workspace:has(.map-side-panel) .map-legend.map-floating-card { right: 14px; bottom: 72px; width: 236px; padding: 12px 13px 10px; }
 .map-legend-heading { margin-bottom: 9px; }
 .map-legend-heading strong { font-size: 12px; }
 .map-legend-heading span { font-size: 10.5px; }
@@ -926,6 +926,7 @@ body { background: #dce8e7; }
 .maplibre-container .maplibregl-ctrl-bottom-right { right: 14px; bottom: 12px; }
 .maplibre-container .maplibregl-ctrl-scale { border-color: #50635d; background: rgb(255 255 255 / 84%); color: #3f524c; font-size: 10px; }
 .maplibre-container .maplibregl-ctrl-attrib { font-size: 10px; }
+.maplibre-container .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 0 6px 0; }
 .map-data-error { font-size: 11px; }
 
 @media (min-width: 701px) {
@@ -1885,4 +1886,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 700px) {
   .map-tool-rail button { min-width: 0; padding: 0 2px; }
   .map-tool-rail button > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* ---------- Rapikan tepi kanan peta (desktop) ----------
+   Satu variabel jarak untuk tombol, legenda, scale bar, dan atribusi.
+   Selector sengaja lebih kuat agar tidak tertimpa aturan lama di atas. */
+@media (min-width: 701px) {
+  .map-stage { --map-edge: 14px; --map-stack-bottom: 72px; }
+  .map-workspace .map-stage .map-control-stack { top: 88px; right: var(--map-edge); bottom: auto; }
+  .map-workspace .map-stage .map-legend.map-floating-card {
+    right: var(--map-edge); bottom: var(--map-stack-bottom); left: auto;
+    box-sizing: border-box; width: 232px; margin: 0; transform: none;
+  }
+  .map-legend-note { text-wrap: balance; }
+  .maplibre-container .maplibregl-ctrl-bottom-right { right: var(--map-edge); bottom: 12px; }
+  .maplibre-container .maplibregl-ctrl-attrib.maplibregl-compact { border-radius: 10px; }
 }
