@@ -17,6 +17,7 @@
 /.next/
 /out/
 /public/maplibre-gl-worker.mjs
+/public/boundaries/
 
 # production
 /build

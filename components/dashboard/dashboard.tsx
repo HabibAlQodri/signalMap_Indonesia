@@ -15,7 +15,7 @@ import {
   formatOoklaPeriod,
 } from "../../lib/ookla/ookla-data";
 import Icon, { type IconName } from "../ui/icon";
-import MapView, { type Basemap, type MapMetric, type MapViewMode } from "../map/mapview";
+import MapView, { type Basemap, type BoundaryLevel, type MapMetric, type MapViewMode } from "../map/mapview";
 import AnalysisPanel from "../analysis/analysis-panel";
 import TimeLapsePlayer from "../timeline/timelapse-player";
 
@@ -107,6 +107,7 @@ export default function Dashboard() {
     return { ...ooklaMapData, cells, aggregatedCells: cells.length };
   }, [ooklaMapData, minTests]);
   const [basemap, setBasemap] = useState<Basemap>("voyager");
+  const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>("adm2");
   const [overlayOn, setOverlayOn] = useState(true);
   const [view3d, setView3d] = useState(false);
   const [viewMode, setViewMode] = useState<MapViewMode>("normal");
@@ -445,6 +446,38 @@ export default function Dashboard() {
           </div>
 
           <div className="map-control-section">
+            <div className="map-section-heading"><span>{t("BATAS ADMINISTRATIF")}</span></div>
+            <label className="map-confidence-control">
+              <span>{t("Tampilkan batas")}</span>
+              <select
+                aria-label={t("Pilih tingkat batas administratif")}
+                onChange={(event) => setBoundaryLevel(event.target.value as BoundaryLevel)}
+                value={boundaryLevel}
+              >
+                <option value="none">{t("Nonaktif")}</option>
+                <option value="adm0">{t("Batas Indonesia")}</option>
+                <option value="adm1">{t("Batas provinsi")}</option>
+                <option value="adm2">{t("Batas kabupaten/kota")}</option>
+              </select>
+              <small>
+                {t("Data geoBoundaries · CC BY 4.0")} ·{" "}
+                <a href="https://www.geoboundaries.org/" rel="noreferrer" target="_blank">geoBoundaries</a>
+                {boundaryLevel === "adm2" ? (
+                  <>
+                    {" · "}{t("Sumber batas: BPS/WFP/OCHA · CC BY 3.0 IGO")} ·{" "}
+                    <a href="https://data.humdata.org/dataset/indonesia-administrative-boundary-polygons-lines-and-places-levels-0-4b" rel="noreferrer" target="_blank">HDX</a>
+                  </>
+                ) : boundaryLevel !== "none" ? (
+                  <>
+                    {" · "}{t("Sumber batas: OSM/Wambacher · ODbL 1.0")} ·{" "}
+                    <a href="https://www.openstreetmap.org/copyright" rel="noreferrer" target="_blank">OpenStreetMap</a>
+                  </>
+                ) : null}
+              </small>
+            </label>
+          </div>
+
+          <div className="map-control-section">
             <div className="map-section-heading"><span>{t("PETA DASAR")}</span></div>
             <div className="basemap-choices">
               {([
@@ -492,6 +525,7 @@ export default function Dashboard() {
         networkType={ooklaNetworkType}
         period={ooklaPeriod}
         basemap={basemap}
+        boundaryLevel={boundaryLevel}
         overlayOn={overlayOn}
         minTests={minTests}
         view3d={view3d}

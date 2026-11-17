@@ -25,9 +25,10 @@ Jangan gunakan `next start` untuk deployment Cloudflare Pages static.
 
 ## Data yang digunakan
 
+- `lib/boundries/indonesia-adm*.geojson`: tiga batas administratif geoBoundaries yang dipakai aplikasi (ADM0, ADM1, ADM2). Berkas ini diletakkan di root `lib/boundries` agar folder dataset lain dapat dihapus. Layer batas dimuat sesuai tingkat yang dipilih; geoBoundaries berlisensi CC BY 4.0, dengan atribusi sumber ADM0/ADM1 OpenStreetMap/Wambacher (ODbL 1.0) dan ADM2 BPS/WFP/OCHA (CC BY 3.0 IGO). Berkas untuk ekspor statis disalin otomatis ke `public/boundaries` saat menjalankan dev atau build.
 - `lib/ookla`: lokasi berkas sumber Parquet Ookla mobile dan fixed per kuartal jika data tersebut tersedia. Skrip memilih lima tahun mundur dari periode terbaru yang tersedia, membatasi data ke area sekitar Indonesia (bujur 90–145°, lintang -15–15°), lalu mengagregasikannya ke quadkey level 12 dengan bobot jumlah tes.
 
-Tile peta menyimpan jumlah tes/perangkat dan rata-rata latensi, latensi unduh, serta latensi unggah. Filter minimum tes membantu menyaring tile dengan sampel rendah. Pengguna dapat berganti antara Mobile dan Fixed broadband. Agregasi wilayah analisis masih memakai kotak koordinat perkiraan; batas administratif belum tersedia untuk spatial join. Periode mengikuti arsip lokal Ookla, bukan pengukuran langsung.
+Tile peta menyimpan jumlah tes/perangkat dan rata-rata latensi, latensi unduh, serta latensi unggah. Titik, ringkasan, dan ekspor sel peta dibatasi ke dalam batas Indonesia; filter minimum tes membantu menyaring tile dengan sampel rendah. Pengguna dapat berganti antara Mobile dan Fixed broadband. Batas administratif tersedia sebagai overlay peta, tetapi belum dipakai untuk spatial join: analisis historis Ookla masih menggunakan kotak koordinat perkiraan. Periode mengikuti arsip lokal Ookla, bukan pengukuran langsung.
 
 ## Membangun ulang data turunan
 

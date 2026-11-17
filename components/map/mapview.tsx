@@ -13,6 +13,7 @@ import {
   getLevel,
   levelIndexFor,
 } from "../../lib/map/cell-index";
+import { buildIndonesiaBoundaryIndex, type IndonesiaBoundaryIndex } from "../../lib/map/indonesia-boundary";
 import {
   type OoklaData,
   type OoklaLatencyDirection,
@@ -27,6 +28,8 @@ import { useLanguage } from "../../lib/i18n";
 export type MapMetric = "download" | "upload" | "latency";
 export type Basemap = "light" | "voyager" | "dark";
 export type MapViewMode = "normal" | "delta";
+export type BoundaryLevel = "none" | "adm0" | "adm1" | "adm2";
+type AdministrativeBoundaryLevel = Exclude<BoundaryLevel, "none">;
 
 type FocusLocation = {
   name: string;
@@ -42,6 +45,7 @@ type MapViewProps = {
   networkType: OoklaNetworkType;
   period: string;
   basemap: Basemap;
+  boundaryLevel: BoundaryLevel;
   overlayOn: boolean;
   minTests: number;
   view3d?: boolean;
@@ -231,6 +235,14 @@ function findNearestCell(map: MapLibreMap, level: CellLevel, point: { x: number;
 /** ---- Mode 3D: batang ekstrusi untuk sel yang ada di area layar saat ini ---- */
 const SOURCE_3D = "cells-3d";
 const LAYER_3D = "cells-3d-bars";
+const BOUNDARY_SOURCE = "administrative-boundaries";
+const BOUNDARY_FILL_LAYER = "administrative-boundaries-fill";
+const BOUNDARY_LINE_LAYER = "administrative-boundaries-line";
+const BOUNDARY_FILES: Record<AdministrativeBoundaryLevel, string> = {
+  adm0: "/boundaries/indonesia-adm0.geojson",
+  adm1: "/boundaries/indonesia-adm1.geojson",
+  adm2: "/boundaries/indonesia-adm2.geojson",
+};
 const MAX_BARS = 6000;
 const MAX_BAR_PX = 120;
 const PITCH_3D = 58;
@@ -380,6 +392,7 @@ export default function MapView({
   networkType,
   period,
   basemap,
+  boundaryLevel,
   overlayOn,
   minTests,
   view3d = false,
@@ -443,6 +456,10 @@ export default function MapView({
 
   const [mapReady, setMapReady] = useState(false);
   const [mapRendered, setMapRendered] = useState(false);
+  const [boundaryFailure, setBoundaryFailure] = useState<{
+    level: AdministrativeBoundaryLevel;
+    message: string;
+  } | null>(null);
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
   const [referenceData, setReferenceData] = useState<OoklaData | null>(null);
   const referenceMapData = useMemo(() => {
@@ -461,6 +478,10 @@ export default function MapView({
   const zoomRef = useRef<HTMLSpanElement>(null);
   const compassRef = useRef<HTMLSpanElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const boundaryCacheRef = useRef(new Map<AdministrativeBoundaryLevel, GeoJSON.FeatureCollection>());
+  const boundaryRequestRef = useRef(new Map<AdministrativeBoundaryLevel, Promise<GeoJSON.FeatureCollection>>());
+  const boundaryLevelRef = useRef(boundaryLevel);
+  const indonesiaBoundaryRef = useRef<IndonesiaBoundaryIndex | null>(null);
   const mapReadyRef = useRef(false);
   const dataRef = useRef<OoklaData | null>(null);
   const overlayOnRef = useRef(overlayOn);
@@ -474,6 +495,31 @@ export default function MapView({
   const lastFocusKeyRef = useRef(focusLocation.key);
   const drawRef = useRef<(() => void) | null>(null);
   const cartoKey = process.env.NEXT_PUBLIC_CARTO_KEY;
+
+  const loadBoundaryCollection = useCallback((level: AdministrativeBoundaryLevel) => {
+    const cached = boundaryCacheRef.current.get(level);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = boundaryRequestRef.current.get(level);
+    if (pending) return pending;
+
+    const request = fetch(BOUNDARY_FILES[level]).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(tRef.current("Gagal memuat batas administratif ({status}).").replace("{status}", String(response.status)));
+      }
+      const collection = await response.json() as GeoJSON.FeatureCollection;
+      if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) {
+        throw new Error(tRef.current("Format data batas administratif tidak valid."));
+      }
+      boundaryCacheRef.current.set(level, collection);
+      return collection;
+    });
+    boundaryRequestRef.current.set(level, request);
+    void request.catch(() => {
+      if (boundaryRequestRef.current.get(level) === request) boundaryRequestRef.current.delete(level);
+    });
+    return request;
+  }, []);
 
   // Sel terpilih hanya relevan saat overlay aktif.
   const activeCell = overlayOn && mapData && selectedCell && selectedCell[5] >= minTests ? selectedCell : null;
@@ -566,16 +612,59 @@ export default function MapView({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/data/ookla/${networkType}-${period}.json`, { signal: controller.signal })
+    const dataRequest = fetch(`/data/ookla/${networkType}-${period}.json`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(tRef.current("Permintaan data gagal ({status}).").replace("{status}", String(response.status)));
         return response.json() as Promise<OoklaData>;
-      })
-      .then((result) => {
+      });
+    const boundaryRequest = indonesiaBoundaryRef.current
+      ? Promise.resolve(indonesiaBoundaryRef.current)
+      : fetch("/boundaries/indonesia-adm0.geojson", { signal: controller.signal }).then(async (response) => {
+        if (!response.ok) {
+          throw new Error(tRef.current("Batas Indonesia gagal dimuat ({status}).").replace("{status}", String(response.status)));
+        }
+        const collection = await response.json() as GeoJSON.FeatureCollection;
+        const index = buildIndonesiaBoundaryIndex(collection);
+        indonesiaBoundaryRef.current = index;
+        return index;
+      });
+
+    Promise.all([dataRequest, boundaryRequest])
+      .then(([result, boundaryIndex]) => {
+        const cells = result.cells.filter((cell) => boundaryIndex.contains(cell[0], cell[1]));
+        const totals = cells.reduce(
+          (sum, cell) => ({
+            tests: sum.tests + cell[5],
+            devices: sum.devices + cell[6],
+            download: sum.download + cell[2] * cell[5],
+            upload: sum.upload + cell[3] * cell[5],
+            latency: sum.latency + cell[4] * cell[5],
+            latencyDown: sum.latencyDown + (cell[8] ?? cell[4]) * cell[5],
+            latencyUp: sum.latencyUp + (cell[9] ?? cell[4]) * cell[5],
+          }),
+          { tests: 0, devices: 0, download: 0, upload: 0, latency: 0, latencyDown: 0, latencyUp: 0 },
+        );
+        const weightedAverage = (value: number, precision = 0) => {
+          if (!totals.tests) return 0;
+          const factor = 10 ** precision;
+          return Math.round((value / totals.tests) * factor) / factor;
+        };
+        const indonesiaData = {
+          ...result,
+          cells,
+          aggregatedCells: cells.length,
+          tests: totals.tests,
+          devices: totals.devices,
+          avgDownloadKbps: weightedAverage(totals.download),
+          avgUploadKbps: weightedAverage(totals.upload),
+          avgLatencyMs: weightedAverage(totals.latency, 1),
+          avgLatencyDownMs: weightedAverage(totals.latencyDown, 1),
+          avgLatencyUpMs: weightedAverage(totals.latencyUp, 1),
+        };
         setSelectedCell(null);
-        setLoadedDataset({ key: datasetKey, data: result, error: "" });
-        onDataLoaded(result);
-        onMapDataLoaded(result);
+        setLoadedDataset({ key: datasetKey, data: indonesiaData, error: "" });
+        onDataLoaded(indonesiaData);
+        onMapDataLoaded(indonesiaData);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -584,7 +673,7 @@ export default function MapView({
         setLoadedDataset({
           key: datasetKey,
           data: null,
-          error: error instanceof Error ? error.message : tRef.current("Data peta gagal dimuat."),
+          error: error instanceof Error ? tRef.current(error.message) : tRef.current("Data peta gagal dimuat."),
         });
       });
     return () => controller.abort();
@@ -749,6 +838,67 @@ export default function MapView({
     setMapReady(false);
     map.setStyle(styleUrl);
   }, [basemap, cartoKey]);
+
+  useEffect(() => {
+    boundaryLevelRef.current = boundaryLevel;
+  }, [boundaryLevel]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && mapReady) {
+      if (map.getLayer(BOUNDARY_LINE_LAYER)) map.removeLayer(BOUNDARY_LINE_LAYER);
+      if (map.getLayer(BOUNDARY_FILL_LAYER)) map.removeLayer(BOUNDARY_FILL_LAYER);
+      if (map.getSource(BOUNDARY_SOURCE)) map.removeSource(BOUNDARY_SOURCE);
+    }
+    if (boundaryLevel === "none") return;
+
+    const level: AdministrativeBoundaryLevel = boundaryLevel;
+    loadBoundaryCollection(level)
+      .then((collection) => {
+        if (
+          !map ||
+          !mapReady ||
+          mapRef.current !== map ||
+          !mapReadyRef.current ||
+          boundaryLevelRef.current !== level ||
+          map.getSource(BOUNDARY_SOURCE)
+        ) return;
+        map.addSource(BOUNDARY_SOURCE, { type: "geojson", data: collection });
+        map.addLayer({
+          id: BOUNDARY_FILL_LAYER,
+          type: "fill",
+          source: BOUNDARY_SOURCE,
+          paint: {
+            "fill-color": "#4c9a7e",
+            "fill-opacity": 0.035,
+          },
+        });
+        map.addLayer({
+          id: BOUNDARY_LINE_LAYER,
+          type: "line",
+          source: BOUNDARY_SOURCE,
+          paint: {
+            "line-color": "#174f40",
+            "line-opacity": 0.95,
+            "line-width": level === "adm2"
+              ? ["interpolate", ["linear"], ["zoom"], 3, 0.9, 6, 1.2, 9, 1.7, 12, 2]
+              : level === "adm1" ? 1.3 : 2,
+          },
+        });
+        setBoundaryFailure(null);
+      })
+      .catch((error: unknown) => {
+        if (boundaryLevelRef.current !== level) return;
+        setBoundaryFailure({
+          level,
+          message: error instanceof Error ? error.message : tRef.current("Batas administratif gagal dimuat."),
+        });
+      });
+  }, [boundaryLevel, loadBoundaryCollection, mapReady]);
+
+  const boundaryError = boundaryLevel !== "none" && boundaryFailure?.level === boundaryLevel
+    ? boundaryFailure.message
+    : "";
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1146,6 +1296,7 @@ export default function MapView({
         </div>
       )}
       {dataError && <div className="map-data-error" role="alert">{dataError}</div>}
+      {boundaryError && <div className="map-data-error" role="alert">{boundaryError}</div>}
 
       <div className="map-legend map-floating-card">
         <div className="map-legend-heading">
