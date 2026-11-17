@@ -455,7 +455,6 @@ export default function MapView({
   }, []);
 
   const [mapReady, setMapReady] = useState(false);
-  const [mapRendered, setMapRendered] = useState(false);
   const [boundaryFailure, setBoundaryFailure] = useState<{
     level: AdministrativeBoundaryLevel;
     message: string;
@@ -681,9 +680,9 @@ export default function MapView({
 
   useEffect(() => {
     const dataFinished = data !== null || dataError !== "";
-    const mapFinished = mapRendered || mapError !== "" || !cartoKey;
+    const mapFinished = mapReady || mapError !== "" || !cartoKey;
     if (dataFinished && mapFinished) onInitialLoadComplete?.();
-  }, [cartoKey, data, dataError, mapError, mapRendered, onInitialLoadComplete]);
+  }, [cartoKey, data, dataError, mapError, mapReady, onInitialLoadComplete]);
 
   useEffect(() => {
     const container = mapContainerRef.current;
@@ -777,7 +776,6 @@ export default function MapView({
           setMapError("");
           syncHud();
         });
-        map.once("load", () => setMapRendered(true));
         map.on("move", syncHud);
         map.on("error", (event) => {
           if (!mapReadyRef.current && event.error.message) setMapError(event.error.message);
@@ -845,6 +843,8 @@ export default function MapView({
 
   useEffect(() => {
     const map = mapRef.current;
+    let cancelled = false;
+
     if (map && mapReady) {
       if (map.getLayer(BOUNDARY_LINE_LAYER)) map.removeLayer(BOUNDARY_LINE_LAYER);
       if (map.getLayer(BOUNDARY_FILL_LAYER)) map.removeLayer(BOUNDARY_FILL_LAYER);
@@ -856,44 +856,49 @@ export default function MapView({
     loadBoundaryCollection(level)
       .then((collection) => {
         if (
+          cancelled ||
           !map ||
           !mapReady ||
           mapRef.current !== map ||
           !mapReadyRef.current ||
-          boundaryLevelRef.current !== level ||
-          map.getSource(BOUNDARY_SOURCE)
+          boundaryLevelRef.current !== level
         ) return;
-        map.addSource(BOUNDARY_SOURCE, { type: "geojson", data: collection });
-        map.addLayer({
-          id: BOUNDARY_FILL_LAYER,
-          type: "fill",
-          source: BOUNDARY_SOURCE,
-          paint: {
-            "fill-color": "#4c9a7e",
-            "fill-opacity": 0.035,
-          },
-        });
-        map.addLayer({
-          id: BOUNDARY_LINE_LAYER,
-          type: "line",
-          source: BOUNDARY_SOURCE,
-          paint: {
-            "line-color": "#174f40",
-            "line-opacity": 0.95,
-            "line-width": level === "adm2"
-              ? ["interpolate", ["linear"], ["zoom"], 3, 0.9, 6, 1.2, 9, 1.7, 12, 2]
-              : level === "adm1" ? 1.3 : 2,
-          },
-        });
+        if (!map.getSource(BOUNDARY_SOURCE)) {
+          map.addSource(BOUNDARY_SOURCE, { type: "geojson", data: collection });
+          map.addLayer({
+            id: BOUNDARY_FILL_LAYER,
+            type: "fill",
+            source: BOUNDARY_SOURCE,
+            paint: {
+              "fill-color": "#4c9a7e",
+              "fill-opacity": 0.035,
+            },
+          });
+          map.addLayer({
+            id: BOUNDARY_LINE_LAYER,
+            type: "line",
+            source: BOUNDARY_SOURCE,
+            paint: {
+              "line-color": "#174f40",
+              "line-opacity": 0.95,
+              "line-width": level === "adm2"
+                ? ["interpolate", ["linear"], ["zoom"], 3, 0.9, 6, 1.2, 9, 1.7, 12, 2]
+                : level === "adm1" ? 1.3 : 2,
+            },
+          });
+        }
         setBoundaryFailure(null);
       })
       .catch((error: unknown) => {
-        if (boundaryLevelRef.current !== level) return;
+        if (cancelled || boundaryLevelRef.current !== level) return;
         setBoundaryFailure({
           level,
           message: error instanceof Error ? error.message : tRef.current("Batas administratif gagal dimuat."),
         });
       });
+    return () => {
+      cancelled = true;
+    };
   }, [boundaryLevel, loadBoundaryCollection, mapReady]);
 
   const boundaryError = boundaryLevel !== "none" && boundaryFailure?.level === boundaryLevel
