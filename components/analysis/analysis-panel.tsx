@@ -561,7 +561,7 @@ function exportStatisticsPdf(
   downloadBlob(document.output("blob"), `ookla-statistik-${periodMode}-${metric}.pdf`);
 }
 
-type AnalysisTab = "ranking" | "gap" | "disparity" | "readiness";
+type AnalysisTab = "ranking" | "gap" | "disparity";
 
 type AnalysisRow = {
   key: string;
@@ -717,11 +717,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
   // Tab 4 (Baru): Kesenjangan Digital & Indeks Gini
   const [disparityNetworkType, setDisparityNetworkType] = useState<"mobile" | "fixed">("mobile");
   const [disparityMetric, setDisparityMetric] = useState<MapMetric>("download");
-
-  // Tab 5 (Baru): Kesiapan Layanan (QoE) & Bufferbloat
-  const [readinessRegion, setReadinessRegion] = useState("indonesia-sekitarnya");
-  const [readinessNetworkType, setReadinessNetworkType] = useState<"mobile" | "fixed">("mobile");
-  const [readinessPeriod, setReadinessPeriod] = useState(analysisData.latestPeriod);
 
   // Visualisasi
   const [visMetric, setVisMetric] = useState<MapMetric>("download");
@@ -1198,6 +1193,10 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       }
       return { ...v, quadrant, quadrantName };
     });
+    const counts = { leader: 0, accelerator: 0, responsive: 0, developing: 0 };
+    classified.forEach((item) => {
+      counts[item.quadrant] += 1;
+    });
 
     return {
       periodLabel,
@@ -1207,6 +1206,8 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       maxDown,
       minLat,
       maxLat,
+      regionCount: valid.length,
+      counts,
       items: classified,
     };
   }, [quadrantPeriod, quadrantNetworkType]);
@@ -1278,9 +1279,9 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       { key: "latency" as const, label: "Responsivitas Ping", angle: -Math.PI / 2 + (8 * Math.PI) / 5 },
     ];
 
-    const cx = 320;
+    const cx = 220;
     const cy = 150;
-    const r = 95;
+    const r = 108;
 
     const getPolyPoints = (scores: { download: number; upload: number; latency: number; stability: number; penetration: number }) => {
       return axes
@@ -1369,83 +1370,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
     };
   }, [disparityNetworkType, disparityMetric]);
 
-  // ─── Kesiapan Layanan (QoE) & Bufferbloat ──────────────────────────────────
-  const readinessData = useMemo(() => {
-    const entry = analysisData.entries.find(
-      (e) => e.period === readinessPeriod && e.networkType === readinessNetworkType && e.region === readinessRegion
-    );
-    const reg = analysisData.regions.find((r) => r.value === readinessRegion);
-    const periodLabel = analysisData.periods.find((p) => p.value === readinessPeriod)?.label ?? readinessPeriod;
-
-    if (!entry) return null;
-
-    const downMbps = entry.avgDownloadKbps / 1000;
-    const upMbps = entry.avgUploadKbps / 1000;
-    const latMs = entry.avgLatencyMs;
-    const latDownMs = entry.avgLatencyDownMs ?? latMs * 1.5;
-    const latUpMs = entry.avgLatencyUpMs ?? latMs * 1.8;
-    const bufMs = Math.max(0, latDownMs - latMs);
-
-    const typedEntry = entry as unknown as { qoeOverall?: number; qoeStreaming?: number; qoeGaming?: number; qoeWork?: number };
-
-    const qoeStreaming = typedEntry.qoeStreaming ?? Math.min(100, Math.round((downMbps / 30) * 100));
-    const qoeGaming = typedEntry.qoeGaming ?? Math.max(10, Math.round(100 - (latMs / 50) * 100));
-    const qoeWork = typedEntry.qoeWork ?? Math.min(100, Math.round((upMbps / 15) * 50 + (downMbps / 25) * 50));
-    const qoeOverall = typedEntry.qoeOverall ?? Math.round(qoeStreaming * 0.35 + qoeGaming * 0.35 + qoeWork * 0.30);
-
-    const getGrade = (score: number) => {
-      if (score >= 85) return { grade: "A+", status: "Sangat Unggul", cls: "ready" };
-      if (score >= 70) return { grade: "A", status: "Optimal", cls: "ready" };
-      if (score >= 55) return { grade: "B", status: "Memadai", cls: "moderate" };
-      if (score >= 40) return { grade: "C", status: "Terbatas", cls: "moderate" };
-      return { grade: "D", status: "Perlu Akselerasi", cls: "poor" };
-    };
-
-    return {
-      periodLabel,
-      regionLabel: reg?.label.replace(" (perkiraan)", "") ?? readinessRegion,
-      color: regionColors[readinessRegion] ?? "#2563eb",
-      downMbps,
-      upMbps,
-      latMs,
-      latDownMs,
-      latUpMs,
-      bufMs,
-      qoeOverall,
-      overallGrade: getGrade(qoeOverall),
-      services: [
-        {
-          title: "Streaming Video 4K & UHD",
-          score: qoeStreaming,
-          ...getGrade(qoeStreaming),
-          criteria: "Unduh ≥ 25 Mbps, Bufferbloat terkendali",
-          detail: `Unduh aktual: ${downMbps.toFixed(1)} Mbps`,
-        },
-        {
-          title: "Cloud Gaming & Realtime Esports",
-          score: qoeGaming,
-          ...getGrade(qoeGaming),
-          criteria: "Latensi < 35 ms, Bufferbloat < 50 ms",
-          detail: `Latensi idle: ${latMs.toFixed(1)} ms, Bufferbloat: ${bufMs.toFixed(1)} ms`,
-        },
-        {
-          title: "Konferensi Video & WFH (Zoom/Teams)",
-          score: qoeWork,
-          ...getGrade(qoeWork),
-          criteria: "Unggah ≥ 10 Mbps, Unduh ≥ 15 Mbps",
-          detail: `Unggah: ${upMbps.toFixed(1)} Mbps, Unduh: ${downMbps.toFixed(1)} Mbps`,
-        },
-        {
-          title: "Penjelajahan Web & E-Commerce",
-          score: Math.min(100, Math.round((downMbps / 10) * 100)),
-          ...getGrade(Math.min(100, Math.round((downMbps / 10) * 100))),
-          criteria: "Unduh ≥ 5 Mbps, Responsif",
-          detail: "Aktivitas harian, perbankan, dan medsos",
-        },
-      ],
-    };
-  }, [readinessPeriod, readinessNetworkType, readinessRegion]);
-
   return (
     <div className="map-panel-body analysis-panel">
       {!visualizationOnly && <div className="analysis-subnav" role="tablist" aria-label={t("Kategori Analisis")}>
@@ -1479,21 +1403,11 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           <Icon name="trending-up" size={14} />
           <span>{t("Disparitas Gini")}</span>
         </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "readiness"}
-          className={`analysis-subnav-btn ${activeTab === "readiness" ? "is-active" : ""}`}
-          onClick={() => setActiveTab("readiness")}
-          type="button"
-        >
-          <Icon name="spark" size={14} />
-          <span>{t("Kesiapan QoE")}</span>
-        </button>
       </div>}
       <p className="analysis-panel-intro">
         {visualizationOnly
           ? t("Jelajahi tren wilayah, perubahan YoY, matriks kuadran, radar kinerja, dan deteksi anomali.")
-          : t("Tinjau peringkat wilayah, kesenjangan konvergensi, indeks Gini 5 tahun, dan kesiapan QoE.")}
+          : t("Tinjau peringkat wilayah, kesenjangan konvergensi, dan indeks Gini 5 tahun.")}
       </p>
 
       {visualizationOnly && (
@@ -1674,15 +1588,21 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           </div>
 
           <div className="quadrant-chart-wrap">
-            <svg
-              className="analysis-chart"
-              role="img"
-              viewBox="0 0 640 320"
-              aria-label={t("Diagram pencar 4-kuadran kecepatan unduh terhadap latensi")}
-            >
+            <div className="quadrant-summary-grid">
+              <div><span>{t("Wilayah dianalisis")}</span><strong>{quadrantData.regionCount}</strong></div>
+              <div><span>{t("Median unduh")}</span><strong>{quadrantData.medianDown.toFixed(1)} <small>Mbps</small></strong></div>
+              <div><span>{t("Median latensi")}</span><strong>{quadrantData.medianLat.toFixed(1)} <small>ms</small></strong></div>
+            </div>
+            <div className="quadrant-plot-wrap">
+              <svg
+                className="analysis-chart"
+                role="img"
+                viewBox="0 0 520 320"
+                aria-label={t("Diagram pencar 4-kuadran kecepatan unduh terhadap latensi")}
+              >
               {(() => {
                 const padL = 60, padR = 25, padT = 25, padB = 40;
-                const chartW = 640 - padL - padR;
+                const chartW = 520 - padL - padR;
                 const chartH = 320 - padT - padB;
                 const xSpan = quadrantData.maxDown - quadrantData.minDown || 1;
                 const ySpan = quadrantData.maxLat - quadrantData.minLat || 1;
@@ -1699,11 +1619,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
 
                     <line x1={midX} x2={midX} y1={padT} y2={padT + chartH} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1.5" />
                     <line x1={padL} x2={padL + chartW} y1={midY} y2={midY} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1.5" />
-
-                    <text x={midX + 8} y={padT + 16} fontSize="10" fontWeight="700" fill="#15803d">⭐ {t("Pemimpin Digital")}</text>
-                    <text x={padL + 8} y={padT + 16} fontSize="10" fontWeight="700" fill="#a16207">🎯 {t("Responsif & Stabil")}</text>
-                    <text x={midX + 8} y={midY + 16} fontSize="10" fontWeight="700" fill="#1d4ed8">🚀 {t("Akselerator Throughput")}</text>
-                    <text x={padL + 8} y={midY + 16} fontSize="10" fontWeight="700" fill="#c2410c">⚠️ {t("Butuh Akselerasi")}</text>
 
                     <text x={padL + chartW / 2} y={312} textAnchor="middle" fontSize="10" fill="#64748b" fontWeight="600">
                       {t("Kecepatan Unduh (Mbps)")} →
@@ -1735,40 +1650,51 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                           >
                             <title>{`${item.label}\n${t("Unduh")}: ${item.downloadMbps.toFixed(1)} Mbps\n${t("Latensi")}: ${item.latencyMs.toFixed(1)} ms\n${t("Kuadran")}: ${t(item.quadrantName)}\n${t("Pengujian")}: ${formatNumber(item.tests, numberLocale)}`}</title>
                           </circle>
-                          <text
-                            x={cx}
-                            y={cy - r - 3}
-                            textAnchor="middle"
-                            fontSize="9"
-                            fontWeight="600"
-                            fill="#1e293b"
-                          >
-                            {item.label}
-                          </text>
                         </g>
                       );
                     })}
                   </>
                 );
               })()}
-            </svg>
+              </svg>
+            </div>
 
             <div className="quadrant-legend-grid">
               <div className="quadrant-legend-card leader">
-                <strong>⭐ {t("Pemimpin Digital")}</strong>
+                <strong>⭐ {t("Pemimpin Digital")} <span>{quadrantData.counts.leader}</span></strong>
                 <p>{t("Kecepatan unduh tinggi dengan latensi rendah. Ideal untuk gaming kompetitif, streaming 4K, dan ekosistem digital maju.")}</p>
+                <div className="quadrant-region-list">
+                  {quadrantData.items.filter((item) => item.quadrant === "leader").map((item) => (
+                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
+                  ))}
+                </div>
               </div>
               <div className="quadrant-legend-card accelerator">
-                <strong>🚀 {t("Akselerator Throughput")}</strong>
+                <strong>🚀 {t("Akselerator Throughput")} <span>{quadrantData.counts.accelerator}</span></strong>
                 <p>{t("Kecepatan unduh tinggi namun latensi relatif tinggi. Butuh optimasi routing, CDN lokal, atau penanganan bufferbloat.")}</p>
+                <div className="quadrant-region-list">
+                  {quadrantData.items.filter((item) => item.quadrant === "accelerator").map((item) => (
+                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
+                  ))}
+                </div>
               </div>
               <div className="quadrant-legend-card responsive">
-                <strong>🎯 {t("Responsif & Stabil")}</strong>
+                <strong>🎯 {t("Responsif & Stabil")} <span>{quadrantData.counts.responsive}</span></strong>
                 <p>{t("Latensi gesit dan stabil meskipun throughput masih moderat. Pengalaman browsing dan call suara sangat responsif.")}</p>
+                <div className="quadrant-region-list">
+                  {quadrantData.items.filter((item) => item.quadrant === "responsive").map((item) => (
+                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
+                  ))}
+                </div>
               </div>
               <div className="quadrant-legend-card developing">
-                <strong>⚠️ {t("Butuh Akselerasi")}</strong>
+                <strong>⚠️ {t("Butuh Akselerasi")} <span>{quadrantData.counts.developing}</span></strong>
                 <p>{t("Kecepatan unduh dan responsivitas masih di bawah median. Menjadi prioritas penguatan BTS 4G/5G dan fiberisasi.")}</p>
+                <div className="quadrant-region-list">
+                  {quadrantData.items.filter((item) => item.quadrant === "developing").map((item) => (
+                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1813,7 +1739,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             <svg
               className="analysis-chart"
               role="img"
-              viewBox="0 0 640 280"
+              viewBox="0 0 440 300"
               aria-label={t("Diagram radar perbandingan performa")}
             >
               {[0.2, 0.4, 0.6, 0.8, 1.0].map((level) => {
@@ -1901,23 +1827,37 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
               <span><i style={{ background: radarData.benchColor, border: "1px dashed #475569" }} />{radarData.benchLabel} ({t("Pembanding")})</span>
             </div>
 
+            <div className="radar-dimension-grid">
+              {radarData.axes.map((axis) => {
+                const primaryScore = radarData.primaryScores[axis.key] ?? 0;
+                const benchmarkScore = radarData.benchScores[axis.key] ?? 0;
+                return (
+                  <div className="radar-dimension-card" key={axis.key}>
+                    <strong>{t(axis.label)}</strong>
+                    <div className="radar-dimension-value">
+                      <span>{radarData.primaryLabel}</span>
+                      <b>{primaryScore}</b>
+                    </div>
+                    <div className="radar-dimension-track" aria-hidden="true">
+                      <span style={{ width: `${primaryScore}%`, background: radarData.primaryColor }} />
+                    </div>
+                    <div className="radar-dimension-value is-benchmark">
+                      <span>{radarData.benchLabel}</span>
+                      <b>{benchmarkScore}</b>
+                    </div>
+                    <div className="radar-dimension-track is-benchmark" aria-hidden="true">
+                      <span style={{ width: `${benchmarkScore}%`, background: radarData.benchColor }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {radarData.primaryScores.raw && (
               <div className="radar-score-grid">
                 <div className="radar-score-card is-highlight">
                   <span>{t("SKOR QoE")}</span>
                   <strong>{radarData.primaryScores.raw.qoeOverall}/100</strong>
-                </div>
-                <div className="radar-score-card">
-                  <span>{t("STREAMING 4K")}</span>
-                  <strong>{radarData.primaryScores.raw.qoeStreaming}%</strong>
-                </div>
-                <div className="radar-score-card">
-                  <span>{t("GAMING PING")}</span>
-                  <strong>{radarData.primaryScores.raw.qoeGaming}%</strong>
-                </div>
-                <div className="radar-score-card">
-                  <span>{t("WFH / MEET")}</span>
-                  <strong>{radarData.primaryScores.raw.qoeWork}%</strong>
                 </div>
               </div>
             )}
@@ -2428,118 +2368,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
           <p className="map-panel-footnote">
             {t("Indeks Gini dihitung dari distribusi kecepatan rata-rata antarwilayah tiap kuartal. Penurunan indeks membuktikan hasil positif program Palapa Ring dan penetrasi BTS pelosok.")}
           </p>
-        </div>
-      )}
-
-      {/* ================= TAB: KESIAPAN LAYANAN & BUFFERBLOAT ================= */}
-      {activeTab === "readiness" && readinessData && (
-        <div className="analysis-tab-content">
-          <div className="coverage-panel-filters analysis-filters">
-            <label>
-              <span>{t("Wilayah")}</span>
-              <select onChange={(e) => setReadinessRegion(e.target.value)} value={readinessRegion}>
-                {analysisData.regions.map((r) => (
-                  <option key={r.value} value={r.value}>{t(r.label)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{t("Periode")}</span>
-              <select onChange={(e) => setReadinessPeriod(e.target.value)} value={readinessPeriod}>
-                {analysisData.periods.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{t("Jaringan")}</span>
-              <select onChange={(e) => setReadinessNetworkType(e.target.value as "mobile" | "fixed")} value={readinessNetworkType}>
-                <option value="mobile">{t("Mobile")}</option>
-                <option value="fixed">{t("Fixed broadband")}</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="disparity-kpi-grid">
-            <div className="gap-kpi-card">
-              <span>{t("GRADE KUALITAS MENYELURUH")}</span>
-              <strong style={{ color: readinessData.color }}>{readinessData.overallGrade.grade}</strong>
-              <small>{readinessData.overallGrade.status} · Skor {readinessData.qoeOverall}/100</small>
-            </div>
-            <div className="gap-kpi-card">
-              <span>{t("BUFFERBLOAT (LAG TERBEBAN)")}</span>
-              <strong style={{ color: readinessData.bufMs > 80 ? "#b91c1c" : "#1e3a30" }}>
-                +{readinessData.bufMs.toFixed(0)} ms
-              </strong>
-              <small>{t("Kenaikan latensi saat unduh sibuk")}</small>
-            </div>
-          </div>
-
-          <div className="vis-section-header">
-            <strong>{t("Kesiapan Aplikasi & Kasus Penggunaan Digital")}</strong>
-            <p>{t("Evaluasi kelayakan jaringan {region} untuk berbagai skenario pemanfaatan harian.", { region: readinessData.regionLabel })}</p>
-          </div>
-
-          <div className="readiness-grid">
-            {readinessData.services.map((svc) => (
-              <div key={svc.title} className="readiness-card">
-                <div className="readiness-card-top">
-                  <div className="readiness-card-title">
-                    <span>{svc.title}</span>
-                  </div>
-                  <span className={`readiness-badge ${svc.cls}`}>{svc.grade}</span>
-                </div>
-                <div className="readiness-track">
-                  <div
-                    className="readiness-fill"
-                    style={{
-                      width: `${svc.score}%`,
-                      background: svc.cls === "ready" ? "#16a34a" : svc.cls === "moderate" ? "#ca8a04" : "#dc2626",
-                    }}
-                  />
-                </div>
-                <div className="readiness-meta">
-                  <div><strong>{svc.score}%</strong> · {svc.status}</div>
-                  <small style={{ color: "#64748b" }}>{svc.criteria}</small>
-                  <div style={{ color: "#0f766e", marginTop: 2 }}>{svc.detail}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="vis-section-header">
-            <strong>{t("Analisis Latensi Diam vs Latensi Terbeban (Bufferbloat)")}</strong>
-            <p>{t("Bufferbloat terjadi saat antrean router/BTS penuh ketika pengguna lain sedang mengunduh file besar.")}</p>
-          </div>
-
-          <div className="bufferbloat-card">
-            <div className="bufferbloat-bars">
-              <div className="bufferbloat-row">
-                <span>{t("Latensi Diam (Idle)")}</span>
-                <div className="bufferbloat-track">
-                  <div className="bufferbloat-fill" style={{ width: `${Math.min(100, (readinessData.latMs / 250) * 100)}%`, background: "#0d9488" }} />
-                </div>
-                <strong>{readinessData.latMs.toFixed(1)} ms</strong>
-              </div>
-              <div className="bufferbloat-row">
-                <span>{t("Saat Unduh Aktif")}</span>
-                <div className="bufferbloat-track">
-                  <div className="bufferbloat-fill" style={{ width: `${Math.min(100, (readinessData.latDownMs / 500) * 100)}%`, background: "#e11d48" }} />
-                </div>
-                <strong>{readinessData.latDownMs.toFixed(1)} ms</strong>
-              </div>
-              <div className="bufferbloat-row">
-                <span>{t("Saat Unggah Aktif")}</span>
-                <div className="bufferbloat-track">
-                  <div className="bufferbloat-fill" style={{ width: `${Math.min(100, (readinessData.latUpMs / 500) * 100)}%`, background: "#ea580c" }} />
-                </div>
-                <strong>{readinessData.latUpMs.toFixed(1)} ms</strong>
-              </div>
-            </div>
-            <p className="map-panel-footnote" style={{ margin: "6px 0 0" }}>
-              {t("Lonjakan latensi terbeban di atas 100 ms dapat mengganggu pengalaman video call dan menyebabkan karakter game online terasa 'teleport' (rubberbanding).")}
-            </p>
-          </div>
         </div>
       )}
 
