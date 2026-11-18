@@ -1306,36 +1306,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   width: min(580px, calc(100vw - 420px));
 }
 
-.timelapse-dock.is-minimized {
-  width: auto;
-  padding: 0;
-  border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.timelapse-pill-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  border: 1px solid #d3e4dc;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 96%);
-  padding: 0 16px;
-  color: #1f5647;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgb(30 48 42 / 12%);
-  transition: background .15s ease, transform .15s ease;
-}
-.timelapse-pill-btn:hover {
-  background: #f0f7f3;
-  transform: translateY(-1px);
-}
-
 .timelapse-inner {
   display: flex;
   align-items: center;
@@ -1543,22 +1513,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: #f1f7f4;
 }
 
-.timelapse-minimize-btn {
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #798d85;
-  cursor: pointer;
-}
-.timelapse-minimize-btn:hover {
-  background: #ebf2ee;
-  color: #384e46;
-}
-
 /* Responsive TimeLapse on Mobile */
 @media (max-width: 900px) {
   .timelapse-dock {
@@ -1723,7 +1677,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* --- Sub-nav dalam tab Visualisasi --- */
 .vis-subnav {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin: 14px 0 10px;
 }
@@ -1901,4 +1855,280 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .map-legend-note { text-wrap: balance; }
   .maplibre-container .maplibregl-ctrl-bottom-right { right: var(--map-edge); bottom: 12px; }
   .maplibre-container .maplibregl-ctrl-attrib.maplibregl-compact { border-radius: 10px; }
+}
+
+/* ========================================================
+   EXTENDED ANALYSIS & VISUALIZATION SUITE
+   ======================================================== */
+
+/* Subnav multi-tab responsiveness */
+.analysis-subnav {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+.analysis-subnav-btn {
+  flex: 1 1 120px !important;
+  min-height: 36px !important;
+  font-size: 11px !important;
+}
+.vis-subnav {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+.vis-subnav-btn {
+  flex: 1 1 100px !important;
+  min-height: 34px !important;
+  font-size: 11px !important;
+}
+
+/* ===== ANOMALY DETECTION TAB ===== */
+.anomaly-controls { margin-bottom: 10px; }
+.anomaly-info-box {
+  display: flex; align-items: flex-start; gap: 8px;
+  border: 1px solid #fde68a; border-radius: 8px;
+  background: #fffbeb; padding: 9px 11px; margin-bottom: 12px;
+  color: #92400e; font-size: 10.5px; line-height: 1.5;
+}
+.anomaly-info-box p { margin: 0; }
+.anomaly-kpi-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.anomaly-kpi-card {
+  flex: 1; border: 1px solid #e8ede9; border-radius: 9px;
+  background: #f8faf8; padding: 8px 10px; text-align: center;
+}
+.anomaly-kpi-card span { display: block; color: #7a8e87; font-size: 9px; font-weight: 600; }
+.anomaly-kpi-card strong { display: block; color: #1e3a30; font-size: 20px; font-weight: 700; }
+.anomaly-kpi-card.is-critical { border-color: #fca5a5; background: #fff5f5; }
+.anomaly-kpi-card.is-critical strong { color: #dc2626; }
+.anomaly-kpi-card.is-warn { border-color: #fcd34d; background: #fffdf0; }
+.anomaly-kpi-card.is-warn strong { color: #d97706; }
+.anomaly-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+.anomaly-card {
+  display: flex; align-items: flex-start; gap: 10px;
+  border: 1px solid #e8ede9; border-radius: 10px;
+  background: #f9fcfa; padding: 10px 11px;
+}
+.anomaly-card.is-critical { border-color: #fca5a5; background: #fff8f8; }
+.anomaly-card-rank {
+  flex: 0 0 auto; width: 22px; height: 22px;
+  border-radius: 50%; background: #e8f4ef;
+  color: #1a7a60; font-size: 10px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.anomaly-card.is-critical .anomaly-card-rank { background: #fee2e2; color: #dc2626; }
+.anomaly-card-body { flex: 1; min-width: 0; }
+.anomaly-card-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.anomaly-region-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; }
+.anomaly-region-name { color: #2d4740; font-size: 11.5px; font-weight: 660; }
+.anomaly-period-chip {
+  border: 1px solid #c8ddd7; border-radius: 4px;
+  background: #f0f7f4; padding: 0 5px;
+  color: #2a6050; font-size: 9.5px; font-weight: 600;
+}
+.anomaly-severity-badge { font-size: 10px; font-weight: 650; border-radius: 5px; padding: 1px 7px; }
+.anomaly-severity-badge.kritis { color: #991b1b; background: #fee2e2; }
+.anomaly-severity-badge.perhatian { color: #92400e; background: #fef3c7; }
+.anomaly-score-bar-track { height: 4px; border-radius: 999px; background: #e8ede9; margin-bottom: 6px; overflow: hidden; }
+.anomaly-score-bar-fill { height: 100%; border-radius: 999px; transition: width .3s; }
+.anomaly-card-metrics { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; color: #6b8278; }
+.anomaly-card-metrics .pos { color: #15803d; font-weight: 620; }
+.anomaly-card-metrics .neg { color: #b91c1c; font-weight: 620; }
+.anomaly-score-label { margin-left: auto; color: #94a3b8; font-size: 9.5px; font-variant-numeric: tabular-nums; }
+
+/* ===== 4-QUADRANT SPEED VS LATENCY SCATTER CHART ===== */
+.quadrant-chart-wrap {
+  border: 1px solid #e1ebe5;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.quadrant-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+.quadrant-legend-card {
+  border: 1px solid #e8ede9;
+  border-radius: 8px;
+  background: #fbfdfc;
+  padding: 8px 10px;
+}
+.quadrant-legend-card strong {
+  display: block;
+  font-size: 11px;
+  color: #1e3a30;
+  margin-bottom: 2px;
+}
+.quadrant-legend-card p {
+  margin: 0;
+  font-size: 9.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+.quadrant-legend-card.leader { border-color: #bbf7d0; background: #f0fdf4; }
+.quadrant-legend-card.leader strong { color: #15803d; }
+.quadrant-legend-card.accelerator { border-color: #bfdbfe; background: #eff6ff; }
+.quadrant-legend-card.accelerator strong { color: #1d4ed8; }
+.quadrant-legend-card.responsive { border-color: #fef08a; background: #fefce8; }
+.quadrant-legend-card.responsive strong { color: #a16207; }
+.quadrant-legend-card.developing { border-color: #fed7aa; background: #fff7ed; }
+.quadrant-legend-card.developing strong { color: #c2410c; }
+
+/* ===== RADAR / SPIDER CHART ===== */
+.radar-chart-wrap {
+  border: 1px solid #e1ebe5;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.radar-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.radar-score-card {
+  border: 1px solid #e8ede9;
+  border-radius: 8px;
+  background: #f8faf8;
+  padding: 7px 6px;
+  text-align: center;
+}
+.radar-score-card span {
+  display: block;
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.radar-score-card strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.radar-score-card.is-highlight {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.radar-score-card.is-highlight strong { color: #16a34a; }
+
+/* ===== DIGITAL DIVIDE & GINI DISPARITY ===== */
+.disparity-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.gini-chart-wrap {
+  border: 1px solid #e1ebe5;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+/* ===== SERVICE READINESS & BUFFERBLOAT ===== */
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.readiness-card {
+  border: 1px solid #e2e8e4;
+  border-radius: 10px;
+  background: #f9fcfa;
+  padding: 10px;
+}
+.readiness-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.readiness-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #1e3a30;
+}
+.readiness-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.readiness-badge.ready { background: #dcfce7; color: #15803d; }
+.readiness-badge.moderate { background: #fef9c3; color: #854d0e; }
+.readiness-badge.poor { background: #fee2e2; color: #b91c1c; }
+.readiness-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8e4;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.readiness-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+.readiness-meta {
+  font-size: 9.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.bufferbloat-card {
+  border: 1px solid #e2e8e4;
+  border-radius: 10px;
+  background: #f8faf8;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.bufferbloat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+.bufferbloat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+}
+.bufferbloat-row span:first-child {
+  width: 90px;
+  color: #475569;
+  font-weight: 560;
+  flex-shrink: 0;
+}
+.bufferbloat-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8e4;
+  overflow: hidden;
+}
+.bufferbloat-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.bufferbloat-row strong {
+  width: 55px;
+  text-align: right;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
