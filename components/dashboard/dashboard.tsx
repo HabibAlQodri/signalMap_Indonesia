@@ -337,7 +337,7 @@ export default function Dashboard() {
             <div className="map-section-heading">
               <span>{t("PERFORMA JARINGAN")}</span>
               <span className="map-source-chip">
-                OOKLA · {(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
+                OOKLA · {t(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleUpperCase("id-ID")} · {ooklaSummary?.periodLabel ?? formatOoklaPeriod(ooklaPeriod)}
               </span>
             </div>
             <div className="ookla-data-selects">
@@ -348,8 +348,8 @@ export default function Dashboard() {
                   onChange={(event) => setOoklaNetworkType(event.target.value as OoklaNetworkType)}
                   value={ooklaNetworkType}
                 >
-                  <option value="mobile">Mobile</option>
-                  <option value="fixed">Fixed broadband</option>
+                  <option value="mobile">{t("Mobile")}</option>
+                  <option value="fixed">{t("Fixed broadband")}</option>
                 </select>
               </label>
               <label>
@@ -393,7 +393,7 @@ export default function Dashboard() {
             <p className="map-panel-footnote">{t("Ekspor berisi sel quadkey agregat yang lolos filter untuk jaringan dan periode terpilih, bukan tes individual.")}</p>
             <button aria-pressed={overlayOn} className="map-layer-switch" onClick={() => setOverlayOn((value) => !value)}>
               <span className="map-layer-symbol"><Icon name="activity" size={17} /></span>
-              <span><strong>{t("Hasil pengukuran")}</strong><small>{overlayOn ? t("Overlay {network} aktif", { network: (ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID") }) : t("Overlay disembunyikan")}</small></span>
+              <span><strong>{t("Hasil pengukuran")}</strong><small>{overlayOn ? t("Overlay {network} aktif", { network: t(ooklaSummary?.networkLabel ?? formatOoklaNetworkType(ooklaNetworkType)).toLocaleLowerCase(locale === "en" ? "en-US" : "id-ID") }) : t("Overlay disembunyikan")}</small></span>
               <i className={`switch-track ${overlayOn ? "is-on" : ""}`} />
             </button>
             <button

@@ -331,21 +331,12 @@ const LanguageContext = createContext<TranslationContextValue>({
 });
 
 function detectLocale(): AppLocale {
-  const preferredLanguages = navigator.languages.length ? navigator.languages : [navigator.language];
-  for (const language of preferredLanguages) {
-    const normalized = language.toLowerCase();
-    if (normalized.startsWith("en")) return "en";
-    if (normalized.startsWith("id")) return "id";
-  }
   return "id";
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const locale = useSyncExternalStore<AppLocale>(
-    (callback) => {
-      window.addEventListener("languagechange", callback);
-      return () => window.removeEventListener("languagechange", callback);
-    },
+    () => () => {},
     detectLocale,
     () => "id",
   );

@@ -207,7 +207,7 @@ export default function TimeLapsePlayer({
             type="button"
           >
             <Icon name={networkType === "mobile" ? "cell" : "signal"} size={13} />
-            <span>{networkType === "mobile" ? "Mobile" : "Fixed"}</span>
+            <span>{t(networkType === "mobile" ? "Mobile" : "Fixed")}</span>
           </button>
 
           <button
