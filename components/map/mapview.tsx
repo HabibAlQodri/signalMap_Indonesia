@@ -22,6 +22,10 @@ import {
   formatOoklaNetworkType,
   formatOoklaPeriod,
 } from "../../lib/ookla/ookla-data";
+import {
+  loadProcessedDataset,
+  getCachedDataset,
+} from "../../lib/ookla/ookla-loader";
 import Icon from "../ui/icon";
 import { useLanguage } from "../../lib/i18n";
 
@@ -532,20 +536,9 @@ export default function MapView({
       setReferenceData(null);
       return;
     }
-    const key = `${networkType}-${referencePeriod}`;
-    const cached = refCache.current.get(key);
-    if (cached) {
-      setReferenceData(cached);
-      return;
-    }
     const controller = new AbortController();
-    fetch(`/data/ookla/${networkType}-${referencePeriod}.json`, { signal: controller.signal })
+    loadProcessedDataset(networkType, referencePeriod, controller.signal)
       .then((res) => {
-        if (!res.ok) throw new Error("Data pembanding gagal dimuat");
-        return res.json() as Promise<OoklaData>;
-      })
-      .then((res) => {
-        refCache.current.set(key, res);
         setReferenceData(res);
       })
       .catch(() => {
@@ -576,9 +569,13 @@ export default function MapView({
     basemapRef.current = basemap;
   }, [basemap]);
 
-  // Cache level klaster dikosongkan saat data berganti, lalu dibangun bertahap saat browser idle
-  // supaya tidak ada lonjakan kerja di main thread ketika pengguna zoom.
+  // Gunakan cache level klaster jika sudah dibangun sebelumnya untuk periode ini
   useEffect(() => {
+    const cachedEntry = getCachedDataset(networkType, period);
+    if (cachedEntry?.levels && cachedEntry.levels.size > 0) {
+      levelsRef.current = cachedEntry.levels;
+      return;
+    }
     levelsRef.current = new Map();
     if (!mapData) return;
     const order: number[] = [];
@@ -593,7 +590,7 @@ export default function MapView({
     };
     timer = window.setTimeout(step, 300);
     return () => window.clearTimeout(timer);
-  }, [mapData]);
+  }, [mapData, networkType, period]);
 
   // Pindah wilayah cukup dengan flyTo — peta dan data tidak perlu dibuat/diunduh ulang.
   useEffect(() => {
@@ -611,59 +608,17 @@ export default function MapView({
 
   useEffect(() => {
     const controller = new AbortController();
-    const dataRequest = fetch(`/data/ookla/${networkType}-${period}.json`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(tRef.current("Permintaan data gagal ({status}).").replace("{status}", String(response.status)));
-        return response.json() as Promise<OoklaData>;
-      });
-    const boundaryRequest = indonesiaBoundaryRef.current
-      ? Promise.resolve(indonesiaBoundaryRef.current)
-      : fetch("/boundaries/indonesia-adm0.geojson", { signal: controller.signal }).then(async (response) => {
-        if (!response.ok) {
-          throw new Error(tRef.current("Batas Indonesia gagal dimuat ({status}).").replace("{status}", String(response.status)));
-        }
-        const collection = await response.json() as GeoJSON.FeatureCollection;
-        const index = buildIndonesiaBoundaryIndex(collection);
-        indonesiaBoundaryRef.current = index;
-        return index;
-      });
-
-    Promise.all([dataRequest, boundaryRequest])
-      .then(([result, boundaryIndex]) => {
-        const cells = result.cells.filter((cell) => boundaryIndex.contains(cell[0], cell[1]));
-        const totals = cells.reduce(
-          (sum, cell) => ({
-            tests: sum.tests + cell[5],
-            devices: sum.devices + cell[6],
-            download: sum.download + cell[2] * cell[5],
-            upload: sum.upload + cell[3] * cell[5],
-            latency: sum.latency + cell[4] * cell[5],
-            latencyDown: sum.latencyDown + (cell[8] ?? cell[4]) * cell[5],
-            latencyUp: sum.latencyUp + (cell[9] ?? cell[4]) * cell[5],
-          }),
-          { tests: 0, devices: 0, download: 0, upload: 0, latency: 0, latencyDown: 0, latencyUp: 0 },
-        );
-        const weightedAverage = (value: number, precision = 0) => {
-          if (!totals.tests) return 0;
-          const factor = 10 ** precision;
-          return Math.round((value / totals.tests) * factor) / factor;
-        };
-        const indonesiaData = {
-          ...result,
-          cells,
-          aggregatedCells: cells.length,
-          tests: totals.tests,
-          devices: totals.devices,
-          avgDownloadKbps: weightedAverage(totals.download),
-          avgUploadKbps: weightedAverage(totals.upload),
-          avgLatencyMs: weightedAverage(totals.latency, 1),
-          avgLatencyDownMs: weightedAverage(totals.latencyDown, 1),
-          avgLatencyUpMs: weightedAverage(totals.latencyUp, 1),
-        };
+    loadProcessedDataset(networkType, period, controller.signal)
+      .then((indonesiaData) => {
         setSelectedCell(null);
         setLoadedDataset({ key: datasetKey, data: indonesiaData, error: "" });
         onDataLoaded(indonesiaData);
         onMapDataLoaded(indonesiaData);
+
+        const cachedEntry = getCachedDataset(networkType, period);
+        if (cachedEntry?.levels) {
+          levelsRef.current = cachedEntry.levels;
+        }
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
