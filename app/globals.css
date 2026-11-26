@@ -1676,34 +1676,47 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* --- Sub-nav dalam tab Visualisasi --- */
 .vis-subnav {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin: 14px 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 12px;
+  padding: 6px;
+  background: #f1f6f3;
+  border: 1px solid #dbe6e0;
+  border-radius: 12px;
 }
 .vis-subnav-btn {
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  border: 1px solid #dde8e4;
-  border-radius: 8px;
-  background: #f6faf8;
-  padding: 4px 8px;
-  color: #5a7068;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid #d4e2db;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 6px 12px;
+  color: #556b62;
   font-size: 11px;
-  font-weight: 580;
+  font-weight: 600;
   cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: all .18s ease;
   text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.vis-subnav-btn:hover { border-color: #aaccc0; background: #eef5f2; color: #1e6e55; }
+.vis-subnav-btn:hover {
+  border-color: #97c4b4;
+  background: #f7faf8;
+  color: #17634d;
+  box-shadow: 0 2px 4px rgba(23, 99, 77, 0.08);
+}
 .vis-subnav-btn.is-active {
   border-color: #1a9070;
-  background: #e8f5f1;
-  color: #1a7a60;
-  font-weight: 650;
+  background: #ffffff;
+  color: #15624e;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(26, 144, 112, 0.18), 0 0 0 1px #1a9070;
 }
 
 /* --- Shared Section Wrapper --- */
@@ -1865,39 +1878,89 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .analysis-subnav {
   display: flex !important;
   flex-wrap: wrap !important;
-  gap: 6px !important;
+  gap: 8px !important;
+  padding: 6px !important;
+  background: #f1f6f3 !important;
+  border: 1px solid #dbe6e0 !important;
+  border-radius: 12px !important;
 }
 .analysis-subnav-btn {
-  flex: 1 1 calc(33.333% - 6px) !important;
+  flex: 1 1 calc(33.333% - 8px) !important;
+  min-height: 38px !important;
+  padding: 6px 12px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  justify-content: center !important;
+  border: 1px solid #d4e2db !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #556b62 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: all .18s ease !important;
+}
+.analysis-subnav-btn:hover {
+  border-color: #97c4b4 !important;
+  background: #f7faf8 !important;
+  color: #17634d !important;
+}
+.analysis-subnav-btn.is-active {
+  border-color: #1a9070 !important;
+  background: #ffffff !important;
+  color: #15624e !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(26, 144, 112, 0.18), 0 0 0 1px #1a9070 !important;
+}
+
+.vis-subnav {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 6px !important;
+  background: #f1f6f3 !important;
+  border: 1px solid #dbe6e0 !important;
+  border-radius: 12px !important;
+}
+.vis-subnav-btn {
+  flex: 1 1 calc(20% - 8px) !important;
   min-height: 36px !important;
   padding: 6px 10px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   white-space: nowrap !important;
   justify-content: center !important;
-  border-radius: 8px !important;
+  border: 1px solid #d4e2db !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #556b62 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: all .18s ease !important;
 }
-.vis-subnav {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 6px !important;
+.vis-subnav-btn:hover {
+  border-color: #97c4b4 !important;
+  background: #f7faf8 !important;
+  color: #17634d !important;
 }
-.vis-subnav-btn {
-  flex: 1 1 calc(20% - 6px) !important;
-  min-height: 34px !important;
-  padding: 6px 8px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  white-space: nowrap !important;
-  justify-content: center !important;
-  border-radius: 8px !important;
+.vis-subnav-btn.is-active {
+  border-color: #1a9070 !important;
+  background: #ffffff !important;
+  color: #15624e !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(26, 144, 112, 0.18), 0 0 0 1px #1a9070 !important;
 }
-@media (max-width: 600px) {
+
+@media (max-width: 650px) {
   .analysis-subnav-btn {
-    flex: 1 1 calc(50% - 6px) !important;
+    flex: 1 1 calc(50% - 8px) !important;
   }
   .vis-subnav-btn {
-    flex: 1 1 calc(33.333% - 6px) !important;
+    flex: 1 1 calc(33.333% - 8px) !important;
+  }
+}
+@media (max-width: 420px) {
+  .analysis-subnav-btn,
+  .vis-subnav-btn {
+    flex: 1 1 100% !important;
   }
 }
 
