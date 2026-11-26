@@ -1519,7 +1519,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                           <strong className="anomaly-region-name">{t(item.regionLabel)}</strong>
                           <span className="anomaly-period-chip">{item.periodLabel}</span>
                           <span className={`anomaly-severity-badge ${item.severity}`}>
-                            {item.severity === "kritis" ? "⚠ Kritis" : "⚡ Perhatian"}
+                            {item.severity === "kritis" ? `⚠ ${t("Kritis")}` : `⚡ ${t("Perhatian")}`}
                           </span>
                         </div>
                         <div className="anomaly-score-bar-track">
@@ -1532,8 +1532,8 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                           />
                         </div>
                         <div className="anomaly-card-metrics">
-                          <span>Unduh: {(item.download / 1000).toFixed(1)} Mbps</span>
-                          <span>Latensi: {item.latency.toFixed(1)} ms</span>
+                          <span>{t("Unduh")}: {(item.download / 1000).toFixed(1)} Mbps</span>
+                          <span>{t("Latensi")}: {item.latency.toFixed(1)} ms</span>
                           {item.qoqDeltaDownload !== null && (
                             <span className={item.qoqDeltaDownload >= 0 ? "pos" : "neg"}>
                               QoQ: {item.qoqDeltaDownload >= 0 ? "+" : ""}{item.qoqDeltaDownload.toFixed(1)}%
@@ -1544,7 +1544,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
                               YoY: {item.yoyDeltaDownload >= 0 ? "+" : ""}{item.yoyDeltaDownload.toFixed(1)}%
                             </span>
                           )}
-                          <span className="anomaly-score-label">Skor: {(item.score * 100).toFixed(0)}%</span>
+                          <span className="anomaly-score-label">{t("Skor")}: {(item.score * 100).toFixed(0)}%</span>
                         </div>
                       </div>
                     </div>
@@ -1739,7 +1739,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             <svg
               className="analysis-chart"
               role="img"
-              viewBox="0 0 440 300"
+              viewBox="0 0 460 310"
               aria-label={t("Diagram radar perbandingan performa")}
             >
               {[0.2, 0.4, 0.6, 0.8, 1.0].map((level) => {
@@ -1765,8 +1765,8 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
               {radarData.axes.map((axis) => {
                 const outerX = radarData.cx + radarData.r * Math.cos(axis.angle);
                 const outerY = radarData.cy + radarData.r * Math.sin(axis.angle);
-                const labelX = radarData.cx + (radarData.r + 26) * Math.cos(axis.angle);
-                const labelY = radarData.cy + (radarData.r + 26) * Math.sin(axis.angle);
+                const labelX = radarData.cx + (radarData.r + 28) * Math.cos(axis.angle);
+                const labelY = radarData.cy + (radarData.r + 28) * Math.sin(axis.angle);
 
                 return (
                   <g key={axis.key}>

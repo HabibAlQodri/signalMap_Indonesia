@@ -1865,12 +1865,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .analysis-subnav {
   display: flex !important;
   flex-wrap: wrap !important;
-  gap: 4px !important;
+  gap: 6px !important;
 }
 .analysis-subnav-btn {
-  flex: 1 1 120px !important;
+  flex: 1 1 calc(33.333% - 6px) !important;
   min-height: 36px !important;
+  padding: 6px 10px !important;
   font-size: 11px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
 }
 .vis-subnav {
   display: flex !important;
@@ -1878,9 +1883,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   gap: 6px !important;
 }
 .vis-subnav-btn {
-  flex: 1 1 100px !important;
+  flex: 1 1 calc(20% - 6px) !important;
   min-height: 34px !important;
+  padding: 6px 8px !important;
   font-size: 11px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+}
+@media (max-width: 600px) {
+  .analysis-subnav-btn {
+    flex: 1 1 calc(50% - 6px) !important;
+  }
+  .vis-subnav-btn {
+    flex: 1 1 calc(33.333% - 6px) !important;
+  }
 }
 
 /* ===== ANOMALY DETECTION TAB ===== */
