@@ -1913,8 +1913,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .vis-subnav {
-  display: flex !important;
-  flex-wrap: wrap !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   gap: 8px !important;
   padding: 6px !important;
   background: #f1f6f3 !important;
@@ -1922,19 +1922,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border-radius: 12px !important;
 }
 .vis-subnav-btn {
-  flex: 1 1 calc(20% - 8px) !important;
+  display: flex !important;
+  min-width: 0 !important;
   min-height: 36px !important;
-  padding: 6px 10px !important;
+  gap: 4px !important;
+  padding: 6px 4px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
-  white-space: nowrap !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
   justify-content: center !important;
+  text-align: center !important;
   border: 1px solid #d4e2db !important;
   border-radius: 9px !important;
   background: #ffffff !important;
   color: #556b62 !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
   transition: all .18s ease !important;
+}
+.vis-subnav-btn span {
+  min-width: 0;
 }
 .vis-subnav-btn:hover {
   border-color: #97c4b4 !important;
@@ -1953,14 +1960,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .analysis-subnav-btn {
     flex: 1 1 calc(50% - 8px) !important;
   }
-  .vis-subnav-btn {
-    flex: 1 1 calc(33.333% - 8px) !important;
+  .vis-subnav {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 @media (max-width: 420px) {
   .analysis-subnav-btn,
   .vis-subnav-btn {
     flex: 1 1 100% !important;
+  }
+  .vis-subnav {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 

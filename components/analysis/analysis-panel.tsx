@@ -1420,7 +1420,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="activity" size={12} />
-            {t("Tren Wilayah")}
+            <span>{t("Tren Wilayah")}</span>
           </button>
           <button
             aria-selected={visTab === "compare"}
@@ -1430,7 +1430,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="bar-chart" size={12} />
-            {t("Perubahan YoY")}
+            <span>{t("Perubahan YoY")}</span>
           </button>
           <button
             aria-selected={visTab === "quadrant"}
@@ -1440,7 +1440,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="compass" size={12} />
-            {t("Matriks Kuadran")}
+            <span>{t("Matriks Kuadran")}</span>
           </button>
           <button
             aria-selected={visTab === "radar"}
@@ -1450,7 +1450,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="award" size={12} />
-            {t("Radar Kinerja")}
+            <span>{t("Radar Kinerja")}</span>
           </button>
           <button
             aria-selected={visTab === "anomaly"}
@@ -1460,7 +1460,7 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
             type="button"
           >
             <Icon name="bell" size={12} />
-            {t("Deteksi Anomali")}
+            <span>{t("Deteksi Anomali")}</span>
           </button>
         </div>
       )}
