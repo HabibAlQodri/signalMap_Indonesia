@@ -1193,11 +1193,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       }
       return { ...v, quadrant, quadrantName };
     });
-    const counts = { leader: 0, accelerator: 0, responsive: 0, developing: 0 };
-    classified.forEach((item) => {
-      counts[item.quadrant] += 1;
-    });
-
     return {
       periodLabel,
       medianDown,
@@ -1207,7 +1202,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
       minLat,
       maxLat,
       regionCount: valid.length,
-      counts,
       items: classified,
     };
   }, [quadrantPeriod, quadrantNetworkType]);
@@ -1659,44 +1653,6 @@ export default function AnalysisPanel({ visualizationOnly = false }: { visualiza
               </svg>
             </div>
 
-            <div className="quadrant-legend-grid">
-              <div className="quadrant-legend-card leader">
-                <strong>⭐ {t("Pemimpin Digital")} <span>{quadrantData.counts.leader}</span></strong>
-                <p>{t("Kecepatan unduh tinggi dengan latensi rendah. Ideal untuk gaming kompetitif, streaming 4K, dan ekosistem digital maju.")}</p>
-                <div className="quadrant-region-list">
-                  {quadrantData.items.filter((item) => item.quadrant === "leader").map((item) => (
-                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="quadrant-legend-card accelerator">
-                <strong>🚀 {t("Akselerator Throughput")} <span>{quadrantData.counts.accelerator}</span></strong>
-                <p>{t("Kecepatan unduh tinggi namun latensi relatif tinggi. Butuh optimasi routing, CDN lokal, atau penanganan bufferbloat.")}</p>
-                <div className="quadrant-region-list">
-                  {quadrantData.items.filter((item) => item.quadrant === "accelerator").map((item) => (
-                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="quadrant-legend-card responsive">
-                <strong>🎯 {t("Responsif & Stabil")} <span>{quadrantData.counts.responsive}</span></strong>
-                <p>{t("Latensi gesit dan stabil meskipun throughput masih moderat. Pengalaman browsing dan call suara sangat responsif.")}</p>
-                <div className="quadrant-region-list">
-                  {quadrantData.items.filter((item) => item.quadrant === "responsive").map((item) => (
-                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="quadrant-legend-card developing">
-                <strong>⚠️ {t("Butuh Akselerasi")} <span>{quadrantData.counts.developing}</span></strong>
-                <p>{t("Kecepatan unduh dan responsivitas masih di bawah median. Menjadi prioritas penguatan BTS 4G/5G dan fiberisasi.")}</p>
-                <div className="quadrant-region-list">
-                  {quadrantData.items.filter((item) => item.quadrant === "developing").map((item) => (
-                    <span key={item.region}><i style={{ background: item.color }} />{t(item.label)}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}

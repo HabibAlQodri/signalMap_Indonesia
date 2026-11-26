@@ -371,13 +371,9 @@ const english: Record<string, string> = {
   "Kuadran": "Quadrant",
   "Pengujian": "Tests",
   "Pemimpin Digital": "Digital Leaders",
-  "Kecepatan unduh tinggi dengan latensi rendah. Ideal untuk gaming kompetitif, streaming 4K, dan ekosistem digital maju.": "High download speed and low latency. Ideal for competitive gaming, 4K streaming, and advanced digital ecosystems.",
   "Akselerator Throughput": "Throughput Accelerators",
-  "Kecepatan unduh tinggi namun latensi relatif tinggi. Butuh optimasi routing, CDN lokal, atau penanganan bufferbloat.": "High download speed with relatively high latency. Requires routing optimization, local CDNs, or bufferbloat mitigations.",
   "Responsif & Stabil": "Responsive & Stable",
-  "Latensi gesit dan stabil meskipun throughput masih moderat. Pengalaman browsing dan call suara sangat responsif.": "Agile and stable latency despite moderate throughput. Highly responsive for browsing and voice/video calling.",
   "Butuh Akselerasi": "Needs Acceleration",
-  "Kecepatan unduh dan responsivitas masih di bawah median. Menjadi prioritas penguatan BTS 4G/5G dan fiberisasi.": "Download speed and responsiveness below median. Priority for 4G/5G base station expansion and fiberization.",
 
   // Anomaly Detection
   "Model Isolation Forest mendeteksi periode dengan perubahan drastis pada unduh, unggah, dan latensi (misal: peluncuran 5G, gangguan kabel laut, atau lonjakan tes). Skor > 60% = anomali kandidat.": "The Isolation Forest model detects periods with drastic shifts in download, upload, and latency (e.g., 5G launches, undersea cable cuts, or test spikes). Score > 60% = anomaly candidate.",
