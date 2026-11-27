@@ -2313,3 +2313,170 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   transform: scale(1.35);
   box-shadow: 0 0 0 5px rgba(39, 155, 125, 0.25);
 }
+
+/* Keep the timeline in its own row below the map header. */
+.timelapse-dock.is-subbar {
+  top: 72px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(640px, calc(100vw - 32px));
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.map-workspace:has(.map-side-panel) .timelapse-dock.is-subbar {
+  display: block;
+  right: auto;
+  left: 50%;
+  width: min(640px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+.timelapse-dock.is-subbar .timelapse-inner {
+  width: 100%;
+  justify-content: space-between;
+}
+.timelapse-dock.is-subbar.is-minimized {
+  width: min(320px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.timelapse-dock.is-subbar .timelapse-pill-btn {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 94%);
+  padding: 8px 14px;
+  color: #2b3e37;
+  cursor: pointer;
+  text-align: left;
+}
+
+@media (min-width: 701px) {
+  .map-tool-rail,
+  .map-side-panel,
+  .map-zoom-controls,
+  .map-fullscreen-button {
+    top: 148px;
+  }
+  .map-workspace .map-stage .map-control-stack {
+    top: 148px;
+  }
+  .map-loading-chip,
+  .map-data-error,
+  .map-location-error {
+    top: 148px;
+  }
+}
+
+@media (max-width: 700px) {
+  .map-workspace {
+    --stack-top: 288px;
+  }
+  .timelapse-dock.is-subbar {
+    top: 166px;
+    right: auto;
+    left: 50%;
+    width: calc(100vw - 16px);
+    transform: translateX(-50%);
+    padding: 8px;
+  }
+  .map-workspace:has(.map-side-panel) .timelapse-dock.is-subbar {
+    right: auto;
+    left: 50%;
+    width: calc(100vw - 16px);
+    transform: translateX(-50%);
+  }
+  .timelapse-dock.is-subbar .timelapse-inner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 5px 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-playback-group {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .timelapse-dock.is-subbar .timelapse-scrubber-group {
+    display: contents;
+  }
+  .timelapse-dock.is-subbar .timelapse-meta-row {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .timelapse-dock.is-subbar .timelapse-slider-wrap {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .timelapse-dock.is-subbar .timelapse-mode-group {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .map-zoom-controls,
+  .map-fullscreen-button,
+  .map-workspace:has(.map-side-panel) .map-zoom-controls,
+  .map-workspace:has(.map-side-panel) .map-fullscreen-button {
+    top: var(--stack-top);
+  }
+}
+
+@media (min-width: 1700px) and (max-height: 520px) {
+  .timelapse-dock.is-subbar,
+  .map-workspace:has(.map-side-panel) .timelapse-dock.is-subbar {
+    top: auto;
+    bottom: 4px;
+    left: calc(50% + 430px);
+    width: min(560px, calc(100vw - 1380px));
+    transform: translateX(-50%);
+  }
+  .map-tool-rail,
+  .map-side-panel {
+    top: 72px;
+  }
+  .map-zoom-controls,
+  .map-fullscreen-button {
+    top: 83px;
+  }
+  .map-workspace .map-stage .map-control-stack {
+    top: 88px;
+  }
+  .map-loading-chip,
+  .map-data-error,
+  .map-location-error {
+    top: 72px;
+  }
+}
+
+@media (max-width: 700px) and (max-height: 520px) {
+  .map-workspace {
+    --stack-top: 228px;
+  }
+  .timelapse-dock.is-subbar {
+    padding: 6px 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-inner {
+    display: flex;
+    gap: 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-scrubber-group {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+  .timelapse-dock.is-subbar .timelapse-speed-toggle,
+  .timelapse-dock.is-subbar .timelapse-slider-wrap {
+    display: none;
+  }
+  .map-performance-card,
+  .map-legend {
+    display: none;
+  }
+}
