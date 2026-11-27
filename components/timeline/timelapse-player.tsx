@@ -18,6 +18,8 @@ type TimeLapsePlayerProps = {
   networkType: "mobile" | "fixed";
   onToggleNetworkType: () => void;
   hasReferencePeriod: boolean;
+  /** Jika true, render sebagai konten panel (tanpa floating dock) */
+  panelMode?: boolean;
 };
 
 export default function TimeLapsePlayer({
@@ -29,6 +31,7 @@ export default function TimeLapsePlayer({
   networkType,
   onToggleNetworkType,
   hasReferencePeriod,
+  panelMode = false,
 }: TimeLapsePlayerProps) {
   const { t } = useLanguage();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -169,7 +172,7 @@ export default function TimeLapsePlayer({
   const currentLabel = chronologicalPeriods[displayIndex]?.label ?? currentPeriod;
   const isCached = isDatasetCached(networkType, chronologicalPeriods[displayIndex]?.value ?? currentPeriod);
 
-  if (isMinimized) {
+  if (isMinimized && !panelMode) {
     return (
       <div className="timelapse-dock is-subbar is-minimized">
         <button
