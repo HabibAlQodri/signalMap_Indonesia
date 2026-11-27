@@ -171,7 +171,7 @@ export default function TimeLapsePlayer({
 
   if (isMinimized) {
     return (
-      <div className="timelapse-dock is-minimized">
+      <div className="timelapse-dock is-subbar is-minimized">
         <button
           className="timelapse-pill-btn"
           onClick={() => setIsMinimized(false)}
@@ -186,7 +186,7 @@ export default function TimeLapsePlayer({
   }
 
   return (
-    <div className="timelapse-dock" role="region" aria-label={t("Pemutar Linimasa dan Pertumbuhan")}>
+    <div className="timelapse-dock is-subbar" role="region" aria-label={t("Pemutar Linimasa dan Pertumbuhan")}>
       <div className="timelapse-inner">
         {/* Kontrol Navigasi Waktu */}
         <div className="timelapse-playback-group">

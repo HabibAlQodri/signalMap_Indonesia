@@ -2303,6 +2303,103 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   cursor: pointer;
   transition: opacity 0.15s;
 }
+
+/* Keep the timeline below the map header instead of floating over map content. */
+.timelapse-dock.is-subbar {
+  top: 72px;
+  right: 12px;
+  bottom: auto;
+  left: 12px;
+  width: auto;
+  box-sizing: border-box;
+  transform: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.map-workspace:has(.map-side-panel) .timelapse-dock.is-subbar {
+  display: block;
+}
+.timelapse-dock.is-subbar .timelapse-inner {
+  width: 100%;
+  justify-content: space-between;
+}
+.timelapse-dock.is-subbar.is-minimized {
+  padding: 0;
+}
+.timelapse-dock.is-subbar .timelapse-pill-btn {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 94%);
+  padding: 8px 14px;
+  color: #2b3e37;
+  cursor: pointer;
+  text-align: left;
+}
+
+@media (min-width: 701px) {
+  .map-tool-rail,
+  .map-side-panel,
+  .map-zoom-controls,
+  .map-fullscreen-button {
+    top: 148px;
+  }
+  .map-workspace .map-stage .map-control-stack {
+    top: 148px;
+  }
+  .map-loading-chip,
+  .map-data-error,
+  .map-location-error {
+    top: 148px;
+  }
+}
+
+@media (max-width: 700px) {
+  .map-workspace {
+    --stack-top: 288px;
+  }
+  .timelapse-dock.is-subbar {
+    top: 166px;
+    right: 8px;
+    left: 8px;
+    padding: 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-inner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 5px 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-playback-group {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .timelapse-dock.is-subbar .timelapse-scrubber-group {
+    display: contents;
+  }
+  .timelapse-dock.is-subbar .timelapse-meta-row {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .timelapse-dock.is-subbar .timelapse-slider-wrap {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .timelapse-dock.is-subbar .timelapse-mode-group {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .map-zoom-controls,
+  .map-fullscreen-button,
+  .map-workspace:has(.map-side-panel) .map-zoom-controls,
+  .map-workspace:has(.map-side-panel) .map-fullscreen-button {
+    top: var(--stack-top);
+  }
+}
 .timelapse-slider:active {
   cursor: grabbing;
 }
