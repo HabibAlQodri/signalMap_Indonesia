@@ -2305,140 +2305,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* Keep the timeline below the map header instead of floating over map content. */
-/* .timelapse-dock.is-subbar is now only used in minimized fallback state */
 .timelapse-dock.is-subbar {
-  display: none; /* hide floating dock — timeline is now inside the side panel */
+  top: 72px;
+  right: 12px;
+  bottom: auto;
+  left: 12px;
+  width: auto;
+  box-sizing: border-box;
+  transform: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.map-workspace:has(.map-side-panel) .timelapse-dock.is-subbar {
+  display: block;
+}
+.timelapse-dock.is-subbar .timelapse-inner {
+  width: 100%;
+  justify-content: space-between;
 }
 .timelapse-dock.is-subbar.is-minimized {
-  display: none;
+  padding: 0;
 }
-
-/* Timeline inside side panel */
-.timeline-panel-body {
-  padding: 0 !important;
-  overflow: hidden;
-}
-.timelapse-panel-layout {
+.timelapse-dock.is-subbar .timelapse-pill-btn {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-.timelapse-panel-layout .timelapse-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   width: 100%;
-}
-.timelapse-panel-layout .timelapse-playback-group {
-  display: flex;
+  min-height: 42px;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-}
-.timelapse-panel-layout .timelapse-btn {
-  width: 38px;
-  height: 38px;
-}
-.timelapse-panel-layout .timelapse-play-btn {
-  width: 46px;
-  height: 46px;
+  border: 0;
   border-radius: 12px;
-}
-.timelapse-panel-layout .timelapse-scrubber-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-.timelapse-panel-layout .timelapse-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.timelapse-panel-layout .timelapse-period-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-.timelapse-panel-layout .timelapse-period-badge strong {
-  font-size: 15px;
-  font-weight: 680;
-}
-.timelapse-panel-layout .timelapse-slider-wrap {
-  width: 100%;
-}
-.timelapse-panel-layout .timelapse-slider {
-  width: 100%;
-}
-.timelapse-panel-layout .timelapse-mode-group {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid #e8eeeb;
-}
-.timelapse-panel-layout .timelapse-delta-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  border: 1px solid #dde8e4;
-  border-radius: 9px;
-  background: #f5f9f7;
-  padding: 0 12px;
-  color: #4a6660;
-  font-size: 11.5px;
-  font-weight: 600;
+  background: rgb(255 255 255 / 94%);
+  padding: 8px 14px;
+  color: #2b3e37;
   cursor: pointer;
-  transition: all .15s;
-}
-.timelapse-panel-layout .timelapse-delta-btn:disabled {
-  opacity: .4;
-  cursor: not-allowed;
-}
-.timelapse-panel-layout .timelapse-delta-btn.is-active {
-  border-color: #1a9070;
-  background: #e8f5f1;
-  color: #15624e;
-  box-shadow: 0 0 0 1px #1a9070;
-}
-.timelapse-panel-layout .timelapse-network-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 36px;
-  min-width: 72px;
-  border: 1px solid #dde8e4;
-  border-radius: 9px;
-  background: #f5f9f7;
-  padding: 0 10px;
-  color: #4a6660;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
-}
-.timelapse-panel-layout .timelapse-network-toggle:hover {
-  border-color: #97c4b4;
-  background: #eef5f2;
-}
-.timelapse-panel-layout .timelapse-minimize-btn {
-  display: none; /* Tidak perlu tombol minimize di panel */
-}
-.timelapse-panel-layout .timelapse-active-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #15624e;
-}
   text-align: left;
 }
 
@@ -2447,21 +2346,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .map-side-panel,
   .map-zoom-controls,
   .map-fullscreen-button {
-    top: 72px;
+    top: 148px;
   }
   .map-workspace .map-stage .map-control-stack {
-    top: 72px;
+    top: 148px;
   }
   .map-loading-chip,
   .map-data-error,
   .map-location-error {
-    top: 72px;
+    top: 148px;
   }
 }
 
 @media (max-width: 700px) {
   .map-workspace {
-    --stack-top: 160px;
+    --stack-top: 288px;
+  }
+  .timelapse-dock.is-subbar {
+    top: 166px;
+    right: 8px;
+    left: 8px;
+    padding: 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-inner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 5px 8px;
+  }
+  .timelapse-dock.is-subbar .timelapse-playback-group {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .timelapse-dock.is-subbar .timelapse-scrubber-group {
+    display: contents;
+  }
+  .timelapse-dock.is-subbar .timelapse-meta-row {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .timelapse-dock.is-subbar .timelapse-slider-wrap {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .timelapse-dock.is-subbar .timelapse-mode-group {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
   }
   .map-zoom-controls,
   .map-fullscreen-button,
