@@ -19,7 +19,7 @@ import MapView, { type Basemap, type BoundaryLevel, type MapMetric, type MapView
 import AnalysisPanel from "../analysis/analysis-panel";
 import TimeLapsePlayer from "../timeline/timelapse-player";
 
-type PanelName = "layers" | "analysis" | "visualization";
+type PanelName = "layers" | "analysis" | "visualization" | "timeline";
 
 const metrics: { value: MapMetric; label: string; short: string }[] = [
   { value: "download", label: "Kecepatan unduh", short: "Unduh" },
@@ -30,6 +30,7 @@ const panelItems: { value: PanelName; label: string; short: string; icon: IconNa
   { value: "analysis", label: "Analisis data", short: "Analisis", icon: "activity" },
   { value: "visualization", label: "Visualisasi", short: "Visualisasi", icon: "bar-chart" },
   { value: "layers", label: "Layer peta", short: "Layer", icon: "layers" },
+  { value: "timeline", label: "Pemutar Linimasa dan Pertumbuhan", short: "Linimasa", icon: "play" },
 ];
 
 function metricReading(
@@ -511,6 +512,24 @@ export default function Dashboard() {
       return <AnalysisPanel visualizationOnly />;
     }
 
+    if (panel === "timeline") {
+      return (
+        <div className="map-panel-body timeline-panel-body">
+          <TimeLapsePlayer
+            periods={ooklaPeriods.periods}
+            currentPeriod={ooklaPeriod}
+            onSelectPeriod={(p) => setOoklaPeriod(p)}
+            viewMode={viewMode}
+            onToggleViewMode={toggleViewMode}
+            networkType={ooklaNetworkType}
+            onToggleNetworkType={toggleNetworkType}
+            hasReferencePeriod={hasReferencePeriod}
+            panelMode
+          />
+        </div>
+      );
+    }
+
     return null;
   }
 
@@ -536,17 +555,6 @@ export default function Dashboard() {
         onInitialLoadComplete={finishInitialLoading}
         onDataLoaded={updateOoklaSummary}
         onMapDataLoaded={updateOoklaMapData}
-      />
-
-      <TimeLapsePlayer
-        periods={ooklaPeriods.periods}
-        currentPeriod={ooklaPeriod}
-        onSelectPeriod={(p) => setOoklaPeriod(p)}
-        viewMode={viewMode}
-        onToggleViewMode={toggleViewMode}
-        networkType={ooklaNetworkType}
-        onToggleNetworkType={toggleNetworkType}
-        hasReferencePeriod={hasReferencePeriod}
       />
 
       <header className="map-topbar">
